@@ -36,21 +36,37 @@ We use `DistilBERT` as the base encoder, fine-tuned separately per dataset with 
 
 ## 🛠 Repo Structure
 hybrid_active_learning/
+
 ├── data/                 # Raw and preprocessed datasets (AG News, IMDb, Jigsaw)
+
 ├── media/
+
 ├── scripts/              # All source code
+
 │   ├── utils.py              # Shared helpers: seeding, timing, plotting, etc.
+
 │   ├── 
+
 │   └── 
+
 ├── models/              # saved model checkpoints
+
 ├── results/             # Metrics logs, ΔF1 values, plots
+
 ├── README.md            # Project description and setup guide
+
 ├── requirements.txt     # List of dependencies
+
 ├── eda_preprocessing/
+
 │   ├── dataset_eda.ipynb  # Initial exploration of AG News, IMDb, Jigsaw
+
 │   ├── split_saver.ipynb # Creating and saving train/val/test splits
+
 │   ├── 
+
 │   └── 
+
 └── config.json          # Experiment config: ε, k, batch size, etc.
 
 
