@@ -6,6 +6,10 @@ This project implements a hybrid training strategy for pool-based active learnin
 
 To reduce training cost in active learning without sacrificing performance, we propose a hybrid training strategy that switches from retraining to fine-tuning once ΔF1 falls below a small threshold ε for k consecutive rounds.
 
+## 🔁 Active Learning Pipeline
+
+![Active Learning Pipeline](media/active_learning_pipeline.png)
+
 ## 🔍 Datasets
 
 We experiment on three text classification benchmarks:
