@@ -4,31 +4,27 @@ from abc import ABC
 from typing import List
 from base_strategy import BaseStrategy
 
-
-class FineTuneStrategy(BaseStrategy, ABC):
+class NewOnlyStrategy(BaseStrategy):
     def __init__(self, model, model_class, model_kwargs, pool, dataset, optimizer_class, optimizer_kwargs, criterion,
                  device='cpu', epochs=3, batch_size=16):
         super().__init__(model, model_class, model_kwargs, pool)
-        self.train_indices = []  # indices of the all the examples we've gathered so far
-        self.dataset = dataset  # full dataset, supports indexing
+        self.dataset = dataset
         self.criterion = criterion
         self.optimizer_class = optimizer_class
         self.optimizer_kwargs = optimizer_kwargs
         self.device = device
         self.epochs = epochs
         self.batch_size = batch_size
-
         self.model.to(self.device)
 
     def train_round(self, new_indices: List[int], round_i: int) -> None:
         """
-        Fine-tunes the model for `x` epochs using only the new datapoints.
+        Fine-tunes the model using only the new datapoints.
         """
-        self.model.train()  # Set the model to training mode
-        self.train_indices.extend(new_indices)  # Update the indices of the examples we've gathered so far
+        self.model.train()
 
-        # Get the data from the train indices
-        subset = Subset(self.dataset, self.train_indices)
+        # Get only the new data
+        subset = Subset(self.dataset, new_indices)
         dataloader = DataLoader(subset, batch_size=self.batch_size, shuffle=True)
 
         # Create a new optimizer for fine-tuning
