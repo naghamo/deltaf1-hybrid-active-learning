@@ -42,7 +42,7 @@ class ActiveLearning:
         self.pool = DataPool(train_dataset, initial_indices)
 
     def _load_data(self):
-        # TODO: Maybe we'll need to just make dataset as another param to init instead, idk, this is just a dummy
+        # TODO: We should probably make dataset as another param to init instead, idk, this is just a dummy
         # Make sure the index is reset, or change the pool initialization
         df_train, df_val, df_test = load_agnews(path='data')
 
@@ -177,6 +177,7 @@ class ActiveLearning:
     def save_experiment(self, filepath: Path = None) -> None:
         """Save experiment results to file."""
         # TODO: needs better usable/readable saving format (since stuff like scheduler, optimizer is in strategy class
+        # TODO: I thought maybe instead in cfg, we'll pass class_name, class_kwargs for each thing ?
         if filepath is None:
             save_dir = self.cfg.save_dir / self.cfg.experiment_name
             save_dir.mkdir(parents=True, exist_ok=True)

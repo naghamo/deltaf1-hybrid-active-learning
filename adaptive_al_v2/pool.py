@@ -4,12 +4,16 @@ from torch.utils.data import Subset
 class DataPool:
     """Manages labeled and unlabeled data pools."""
 
-    def __init__(self, dataset, initial_labeled_indices: List[int]):
-        self.dataset = dataset  # PyTorch dataset
+    def __init__(self, train_dataset, val_dataset, test_dataset, initial_labeled_indices: List[int]):
+        self.dataset = train_dataset
+
+        # TODO: I thought maybe those are needed for the f1 thing, maybe it will be given as a param in extended class of startegy instead
+        self.val_dataset = val_dataset
+        self.test_dataset = test_dataset
 
         # Convert to sets for efficient operations
         self.labeled_indices: Set[int] = set(initial_labeled_indices)
-        self.unlabeled_indices: Set[int] = set(range(len(dataset))) - self.labeled_indices
+        self.unlabeled_indices: Set[int] = set(range(len(train_dataset))) - self.labeled_indices
 
         # History tracking
         self.history: List[Dict] = []
