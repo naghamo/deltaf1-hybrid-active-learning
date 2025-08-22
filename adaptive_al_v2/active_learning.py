@@ -11,9 +11,6 @@ import logging
 from .config import ExperimentConfig
 from .pool import DataPool
 
-from .utils.data_loader import load_agnews
-from .utils.text_dataset import TextDataset
-
 class ActiveLearning:
     """Manages active learning round by round."""
 
@@ -28,44 +25,44 @@ class ActiveLearning:
         self.strategy = self.cfg.strategy
 
         # Load data and initialize pool
-        self.train_dataset, self.val_dataset, self.test_dataset = self._load_data() # Or just make it params in init...
-        self._initialize_pool(self.train_dataset)
+        self.train_dataset, self.val_dataset, self.test_dataset = self.cfg.train_dataset, self.cfg.val_dataset, self.cfg.test_dataset
+        self._initialize_pool(self.train_dataset, self.val_dataset, self.test_dataset)
 
         # Round tracking
         self.round_stats: List[Dict] = []
         self.current_round = 0
 
-    def _initialize_pool(self, train_dataset):
+    def _initialize_pool(self, train_dataset, val_dataset, test_dataset):
         # Initialize pool with random samples
         all_indices = list(range(len(train_dataset)))
         initial_indices = random.sample(all_indices, self.cfg.initial_pool_size)
-        self.pool = DataPool(train_dataset, initial_indices)
+        self.pool = DataPool(train_dataset, val_dataset, test_dataset, initial_indices)
 
-    def _load_data(self):
-        # TODO: We should probably make dataset as another param to init instead, idk, this is just a dummy
-        # Make sure the index is reset, or change the pool initialization
-        df_train, df_val, df_test = load_agnews(path='data')
-
-        df_train = df_train.reset_index(drop=True)
-        df_test = df_test.reset_index(drop=True)
-
-        # Create datasets
-        train_dataset = TextDataset(
-            texts=df_train['text'].tolist(),
-            labels=df_train['label'].tolist()
-        )
-
-        val_dataset = TextDataset(
-            texts=df_val['text'].tolist(),
-            labels=df_val['label'].tolist()
-        )
-
-        test_dataset = TextDataset(
-            texts=df_test['text'].tolist(),
-            labels=df_test['label'].tolist()
-        )
-
-        return train_dataset, val_dataset, test_dataset
+    # def _load_data(self):
+    #     # TODO: We should probably make dataset as another param to init instead, idk, this is just a dummy
+    #     # Make sure the index is reset, or change the pool initialization
+    #     df_train, df_val, df_test = load_agnews(path='data')
+    #
+    #     df_train = df_train.reset_index(drop=True)
+    #     df_test = df_test.reset_index(drop=True)
+    #
+    #     # Create datasets
+    #     train_dataset = TextDataset(
+    #         texts=df_train['text'].tolist(),
+    #         labels=df_train['label'].tolist()
+    #     )
+    #
+    #     val_dataset = TextDataset(
+    #         texts=df_val['text'].tolist(),
+    #         labels=df_val['label'].tolist()
+    #     )
+    #
+    #     test_dataset = TextDataset(
+    #         texts=df_test['text'].tolist(),
+    #         labels=df_test['label'].tolist()
+    #     )
+    #
+    #     return train_dataset, val_dataset, test_dataset
 
     def set_seeds(self):
         """Set all random seeds for reproducibility."""

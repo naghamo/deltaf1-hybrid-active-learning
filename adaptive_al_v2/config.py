@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .samplers import BaseSampler
     from .strategies import BaseStrategy
+    from torch.utils.data import Dataset
 
 
 @dataclass
@@ -24,6 +25,11 @@ class ExperimentConfig:
     # Model configuration (still need class + kwargs for model creation)
     model_class: type = field(default=None)
     model_kwargs: Dict[str, Any] = field(default_factory=dict)
+
+    # Datasets for the model
+    train_dataset: 'Dataset' = field(default=None)
+    val_dataset: 'Dataset' = field(default=None)
+    test_dataset: 'Dataset' = field(default=None)
 
     # # Evaluation (dont think is needed)
     # primary_metric: str = "macro_f1"

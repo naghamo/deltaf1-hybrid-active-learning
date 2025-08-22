@@ -1,7 +1,7 @@
 from torch.utils.data import Dataset
 import torch
 
-class TextDataset(Dataset):
+class SimpleTextDataset(Dataset):
     """Simple dataset"""
 
     def __init__(self, texts, labels):
