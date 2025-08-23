@@ -10,7 +10,6 @@ class BaseStrategy(ABC):
         self.model = model
         self.model_class = model_class
         self.model_kwargs = model_kwargs
-
         self.pool = pool
 
     @abstractmethod
