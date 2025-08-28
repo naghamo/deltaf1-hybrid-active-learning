@@ -10,12 +10,12 @@ class FineTuneStrategy(BaseStrategy):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def _train_implementation(self, model: Any, pool, new_indices: List[int]) -> Tuple[Any, Dict]:
+    def _train_implementation(self, pool: DataPool, new_indices: List[int]) -> Dict:
         """
         Fine-tunes the model for epochs using all labeled data so far.
         """
-        model.train()  # Set the model to training mode
-        model.to(self.device)
+        self.model.train()  # Set the model to training mode
+        self.model.to(self.device)
 
         if new_indices:
             pool.add_labeled_samples(new_indices)
@@ -38,7 +38,7 @@ class FineTuneStrategy(BaseStrategy):
                 inputs, targets = inputs.to(self.device), targets.to(self.device)
 
                 self.optimizer.zero_grad()
-                outputs = model(inputs)
+                outputs = self.model(inputs)
                 loss = self.criterion(outputs, targets)
                 loss.backward()
                 self.optimizer.step()
@@ -64,4 +64,4 @@ class FineTuneStrategy(BaseStrategy):
             "new_samples": len(new_indices) if new_indices is not None else 0,
         }
 
-        return model, training_stats
+        return training_stats

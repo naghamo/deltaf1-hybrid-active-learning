@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import random
 from pathlib import Path
@@ -6,88 +7,145 @@ from typing import List, Dict, Any, Optional
 import numpy as np
 import torch
 
+import torch.nn as nn
+import torch.optim as optim
+
 import logging
 
 from .config import ExperimentConfig
 from .pool import DataPool
+
+import adaptive_al_v2.strategies as strategies
+import adaptive_al_v2.samplers as samplers
+import adaptive_al_v2.models as models
+
+from sklearn.metrics import f1_score, accuracy_score
+from torch.utils.data import DataLoader
+
+# Temporary
+from .utils.data_loader import load_agnews
+from .utils.text_datasets import SimpleTextDataset
+
+
 
 class ActiveLearning:
     """Manages active learning round by round."""
 
     def __init__(self, cfg: ExperimentConfig):
         self.cfg = cfg
+        self.train_dataset, self.val_dataset, self.test_dataset = self._load_data()
+        self._initialize()
 
-        self.set_seeds()
+    def _initialize(self):
+        self._initialize_pool()
+        self._initialize_classes()
+        self._initialize_round_tracking()
 
-        # Initializing stuff from cfg
-        self.model = self._initialize_model()
-        self.sampler = self.cfg.sampler
-        self.strategy = self.cfg.strategy
+    def _initialize_pool(self):
+        # Initialize pool with random samples
+        all_indices = list(range(len(self.train_dataset)))
+        initial_indices = random.sample(all_indices, self.cfg.initial_pool_size)
+        self.pool = DataPool(self.train_dataset, initial_indices)
 
-        # Load data and initialize pool
-        self.train_dataset, self.val_dataset, self.test_dataset = self.cfg.train_dataset, self.cfg.val_dataset, self.cfg.test_dataset
-        self._initialize_pool(self.train_dataset, self.val_dataset, self.test_dataset)
+    def _initialize_classes(self):
+        cfg = self.cfg
 
-        # Round tracking
+        # --- Model
+        self.model_cls = resolve_class(cfg.model_class, models)
+        self.model_kwargs = cfg.model_kwargs
+
+        # --- Optimizer
+        self.optimizer_cls = resolve_class(cfg.optimizer_class, optim)
+        self.optimizer_kwargs = cfg.optimizer_kwargs
+
+        # --- Criterion
+        self.criterion_cls = resolve_class(cfg.criterion_class, nn)
+        self.criterion_kwargs = cfg.criterion_kwargs
+
+        # --- Scheduler
+        self.scheduler_cls = None
+        self.scheduler_kwargs = {}
+        if cfg.scheduler_class:
+            self.scheduler_cls = resolve_class(cfg.scheduler_class, optim.lr_scheduler)
+            self.scheduler_kwargs = cfg.scheduler_kwargs
+
+        # --- Strategy
+        # Assuming you have your strategies in a module `strategies`
+        self.strategy_cls = resolve_class(cfg.strategy_class, strategies)
+        self.strategy_kwargs = cfg.strategy_kwargs
+
+        # --- Sampler
+        self.sampler_cls = resolve_class(cfg.sampler_class, samplers)
+        self.sampler_kwargs = cfg.sampler_kwargs
+
+        # --- Instantiate strategy
+        self.strategy = self.strategy_cls(
+            model_cls=self.model_cls,
+            model_kwargs=self.model_kwargs,
+            optimizer_cls=self.optimizer_cls,
+            optimizer_kwargs=self.optimizer_kwargs,
+            criterion_cls=self.criterion_cls,
+            criterion_kwargs=self.criterion_kwargs,
+            scheduler_cls=self.scheduler_cls,
+            scheduler_kwargs=self.scheduler_kwargs,
+            device=cfg.device,
+            epochs=cfg.epochs,
+            batch_size=cfg.batch_size,
+            **self.strategy_kwargs  # optional extra kwargs
+        )
+
+        # --- Instantiate sampler
+        self.sampler = self.sampler_cls(**self.sampler_kwargs)
+
+    def _initialize_round_tracking(self):
         self.round_stats: List[Dict] = []
+        self.final_test_stats: Dict = {}
         self.current_round = 0
 
-    def _initialize_pool(self, train_dataset, val_dataset, test_dataset):
-        # Initialize pool with random samples
-        all_indices = list(range(len(train_dataset)))
-        initial_indices = random.sample(all_indices, self.cfg.initial_pool_size)
-        self.pool = DataPool(train_dataset, val_dataset, test_dataset, initial_indices)
+    def _load_data(self):
+        # TODO: LOAD DATASETs HERE BASED ON STR NAME MAYBE BETTER USE ENUMS OR SMTH IDK
+        # TODO: Maybe each data needs a specific dataset class but i think not . . . (if yes add this to config)
+        data_name = self.cfg.data
+        if data_name != 'agnews':
+            raise ValueError(f"Not supported yet its kinda messy")
 
-    # def _load_data(self):
-    #     # TODO: We should probably make dataset as another param to init instead, idk, this is just a dummy
-    #     # Make sure the index is reset, or change the pool initialization
-    #     df_train, df_val, df_test = load_agnews(path='data')
-    #
-    #     df_train = df_train.reset_index(drop=True)
-    #     df_test = df_test.reset_index(drop=True)
-    #
-    #     # Create datasets
-    #     train_dataset = TextDataset(
-    #         texts=df_train['text'].tolist(),
-    #         labels=df_train['label'].tolist()
-    #     )
-    #
-    #     val_dataset = TextDataset(
-    #         texts=df_val['text'].tolist(),
-    #         labels=df_val['label'].tolist()
-    #     )
-    #
-    #     test_dataset = TextDataset(
-    #         texts=df_test['text'].tolist(),
-    #         labels=df_test['label'].tolist()
-    #     )
-    #
-    #     return train_dataset, val_dataset, test_dataset
+        # Make sure the index is reset, or we need to change the pool initialization
+        df_train, df_val, df_test = load_agnews(path='data')
 
-    def set_seeds(self):
+        df_train = df_train.reset_index(drop=True)
+        df_val = df_val.reset_index(drop=True)
+        df_test = df_test.reset_index(drop=True)
+
+        # Create datasets
+        train_dataset = SimpleTextDataset(
+            texts=df_train['text'].tolist(),
+            labels=df_train['label'].tolist()
+        )
+
+        val_dataset = SimpleTextDataset(
+            texts=df_val['text'].tolist(),
+            labels=df_val['label'].tolist()
+        )
+
+        test_dataset = SimpleTextDataset(
+            texts=df_test['text'].tolist(),
+            labels=df_test['label'].tolist()
+        )
+
+        return train_dataset, val_dataset, test_dataset
+
+    def set_seeds(self, seed):
         """Set all random seeds for reproducibility."""
-        random.seed(self.cfg.seed)
-        np.random.seed(self.cfg.seed)
-        torch.manual_seed(self.cfg.seed)
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
 
         if torch.cuda.is_available():
-            torch.cuda.manual_seed(self.cfg.seed)
-            torch.cuda.manual_seed_all(self.cfg.seed)
+            torch.cuda.manual_seed(seed)
+            torch.cuda.manual_seed_all(seed)
 
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
-
-    def _initialize_model(self):
-        """Sampler creation based on config."""
-        if self.cfg.model_class:
-            return self.cfg.model_class(**self.cfg.model_kwargs)
-        else:
-            raise ValueError("sampler_class must be specified in config.")
-
-    def reset_model(self):
-        """Reset model to initial state by recreating it."""
-        logging.info("Resetting model to initial state . . .")
-        self.model = self._initialize_model()
 
     def train_one_round(self, new_indices: Optional[List[int]] = None) -> Dict[str, Any]:
         """
@@ -105,44 +163,38 @@ class ActiveLearning:
             logging.info(f"Training with {len(new_indices)} new samples")
 
         # Train model (timing handled in base class)
-        self.model, training_stats = self.strategy.train(self.model, self.pool, new_indices)
+        training_stats = self.strategy.train(self.pool, new_indices)
 
         # Evaluate model
-        f1_score = self._evaluate_model()
+        val_stats = self._evaluate_model(dataset=self.val_dataset)
 
         # Compile round statistics
         # TODO: Add/remove if needed
         round_stats = {
             **training_stats,
-            "f1_score": f1_score,
+            **val_stats,
             "pool_stats": self.pool.get_pool_stats()
         }
 
         self.round_stats.append(round_stats)
-
-        logging.info(f"Round {self.current_round + 1} complete: F1={f1_score:.4f}, "
+        logging.info(f"Round {self.current_round + 1} complete. Val Stats: Loss={val_stats['loss']}, F1={val_stats['f1_score']}, "
                      f"Time={training_stats['training_time']:.2f}s")
 
         self.current_round += 1
         return round_stats
 
-    def sample_next_batch(self, batch_size: Optional[int] = None) -> List[int]: # TODO: Maybe removing the batch size from here (only use cfg provided)
+    def sample_next_batch(self) -> List[int]:
         """
         Sample next batch of data to label.
 
         Returns:
             List of selected indices
         """
-        if batch_size is None:
-            batch_size = self.cfg.batch_size
-        elif self.cfg.batch_size and batch_size != self.cfg.batch_size:
-            logging.warning(f"Using provided batch size {batch_size} instead of {self.cfg.batch_size} in config.")
-
         if not self.pool.get_unlabeled_indices():
             logging.warning("No unlabeled data remaining!")
             return []
 
-        selected_indices = self.sampler.select(self.pool, self.model, batch_size)
+        selected_indices = self.sampler.select(self.pool, self.strategy.model, self.cfg.acquisition_batch_size)
         # DO NOT ADD THEM TO THE POOL RIGHT AWAY DUMBAHH
         # Letting the strategy decide what to do with it
         # self.pool.add_labeled_samples(selected_indices)
@@ -152,49 +204,116 @@ class ActiveLearning:
 
     def run_full_pipeline(self):
         """Running full pipeline of active learning for provided amount of rounds."""
-        # TODO: If needed we could just run the whole active learning thing here . . .
-        pass
+        self._initialize()
+        total_rounds = self.cfg.total_rounds
 
+        if total_rounds == -1:
+            total_rounds = float('inf')
+            logging.info(f"Running rounds until we all available data is used.")
+        else:
+            logging.info(f"Running {total_rounds} rounds.")
 
-    def _evaluate_model(self) -> float:
-        """Evaluate model and return macro F1 score."""
-        # TODO: Implement actual evaluation logic (or we could do it outside of this class and remove it from stats)
-        return random.random()  # Dummy score for now
+        new_indices = []
+        if total_rounds > 0:
+            self.train_one_round(None)
+            new_indices = self.sample_next_batch()
+
+        while new_indices and self.current_round < total_rounds:
+            self.train_one_round(new_indices)
+            new_indices = self.sample_next_batch()
+
+        if self.current_round != total_rounds:
+            logging.info(f"\n--- Stopped at {self.current_round} (ran out of samples).")
+
+        metrics = self._evaluate_model(dataset=self.test_dataset)
+        self.final_test_stats = metrics
+        logging.info(f"Final Test set evaluation: Loss={metrics['loss']}, F1={metrics['f1_score']:.4f}, Acc={metrics['accuracy']:.4f}")
+        return metrics
+
+    def _evaluate_model(self, dataset=None):
+        # not very nice
+        model = self.strategy.model
+        model.eval()
+
+        criterion = self.strategy.criterion
+        device = self.strategy.device
+
+        if dataset is None:
+            dataset = self.val_dataset
+
+        loader = DataLoader(dataset, batch_size=self.cfg.batch_size, shuffle=False)
+        total_loss = 0.0
+        all_preds, all_labels = [], []
+
+        with torch.no_grad():
+            for inputs, targets in loader:
+                inputs, targets = inputs.to(device), targets.to(device)
+                outputs = model(inputs)
+                loss = criterion(outputs, targets)
+                total_loss += loss.item()
+
+                if outputs.shape[-1] == 1:  # binary (if needed idk)
+                    preds = torch.sigmoid(outputs).round()
+                else:                       # multi-class
+                    preds = torch.argmax(outputs, dim=1)
+
+                all_preds.append(preds.cpu())
+                all_labels.append(targets.cpu())
+
+        all_preds = torch.cat(all_preds).numpy()
+        all_labels = torch.cat(all_labels).numpy()
+
+        metrics = {
+            "loss": total_loss / len(loader),
+            "f1_score": f1_score(all_labels, all_preds, average="macro"),
+            "accuracy": accuracy_score(all_labels, all_preds)
+        }
+
+        return metrics
 
     def get_experiment_summary(self) -> Dict[str, Any]:
         """Get summary of all rounds."""
         return {
-            "cfg": self.cfg,
+            "cfg": self.cfg.__dict__,  # Already fully serializable
             "total_rounds": len(self.round_stats),
-            "round_stats": self.round_stats,
+            "round_val_stats": self.round_stats,
             "final_pool_stats": self.pool.get_pool_stats(),
-            "final_f1": self.round_stats[-1]["f1_score"] if self.round_stats else 0.0
+            "final_test_stats": self.final_test_stats
         }
 
-    def save_experiment(self, filepath: Path = None) -> None:
-        """Save experiment results to file."""
-        # TODO: needs better usable/readable saving format (since stuff like scheduler, optimizer is in strategy class
-        # TODO: I thought maybe instead in cfg, we'll pass class_name, class_kwargs for each thing ?
-        if filepath is None:
-            save_dir = self.cfg.save_dir / self.cfg.experiment_name
-            save_dir.mkdir(parents=True, exist_ok=True)
-            filepath = save_dir / f"round_{self.current_round}_results.json"
-
+    def save_experiment(self, filepath: Optional[Path] = None, timestamp: bool = True) -> None:
+        """Save experiment results to a JSON file."""
         summary = self.get_experiment_summary()
 
-        # Converting non-serializable objects
-        summary["cfg"] = summary["cfg"].__dict__
+        # Determine file path
+        save_dir = self.cfg.save_dir / self.cfg.experiment_name
+        save_dir.mkdir(parents=True, exist_ok=True)
 
+        if filepath is None:
+            name = f"results"
+            if timestamp:
+                name += "_" + datetime.now().strftime("%Y%m%d_%H%M%S")
+            filepath = save_dir / f"{name}.json"
+
+        # Save to JSON
         with open(filepath, 'w') as f:
-            json.dump(summary, f, indent=2, default=str)
+            json.dump(summary, f, indent=2, default=str)  # default=str handles any residual non-serializable objects
 
         logging.info(f"Experiment saved to {filepath}")
 
-    def reset_experiment(self):
-        """Reset entire experiment to initial state."""
-        # TODO: not sure if will be needed
-        self.reset_model()
-        self._initialize_pool(self.train_dataset)
-        self.round_stats = []
-        self.current_round = 0
-        logging.info("Experiment reset to initial state")
+
+
+def resolve_class(name: str, module) -> Any:
+    """
+    Resolve a class name (string) to a Python class.
+
+    Args:
+        name: Name of the class (string)
+        module: Module to look in (e.g., torch.nn, torch.optim)
+    Returns:
+        Python class object
+    """
+    if hasattr(module, name):
+        return getattr(module, name)
+
+    raise ValueError(f"Cannot resolve class '{name}' in module {module}")

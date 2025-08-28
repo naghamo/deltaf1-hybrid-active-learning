@@ -10,5 +10,5 @@ class NewOnlyStrategy(BaseStrategy):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def _train_implementation(self, model: Any, pool, new_indices: List[int]) -> Tuple[Any, Dict]:
+    def _train_implementation(self, pool: DataPool, new_indices: List[int]) -> Dict:
         pass
