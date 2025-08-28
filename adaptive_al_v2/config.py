@@ -43,7 +43,7 @@ class ExperimentConfig:
     scheduler_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     device: str = 'cuda'
-    epochs: int = 10
+    epochs: int = 5
     batch_size: int = 16
 
     # Dataset for the model
