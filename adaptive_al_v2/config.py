@@ -25,7 +25,7 @@ class ExperimentConfig:
     learning_rate: float = 2e-5 # Learning rate for model training
     epochs: int = 5 # Number of epochs for model training
     weight_decay: float = 0.01 # Weight decay for model training
-    optimizer: str = 'adamw' # Optimizer type
+    optimizer: str = 'adamw' # Optimizer type or adam
     # Strategy and Sampler instances
     strategy: 'BaseStrategy' = field(default=None)
     sampler: 'BaseSampler' = field(default=None)
