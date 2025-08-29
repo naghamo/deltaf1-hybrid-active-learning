@@ -37,45 +37,51 @@ class ActiveLearning:
         self._initialize()
 
     def _initialize(self):
+        """Initialize everything for the active learning rounds."""
         self._initialize_pool()
         self._initialize_classes()
         self._initialize_round_tracking()
 
     def _initialize_pool(self):
+        """
+        Initialize the pool for active learning rounds.
+        """
         # Initialize pool with random samples
         all_indices = list(range(len(self.train_dataset)))
         initial_indices = random.sample(all_indices, self.cfg.initial_pool_size)
         self.pool = DataPool(self.train_dataset, initial_indices)
 
     def _initialize_classes(self):
+        """
+        Resolve the provided class names. Each one needs to be properly stored in corresponding module.
+        """
         cfg = self.cfg
 
         # --- Model
-        self.model_cls = resolve_class(cfg.model_class, models)
+        self.model_cls = resolve_class(cfg.model_class, models) # from our adaptive_al.models
         self.model_kwargs = cfg.model_kwargs
 
         # --- Optimizer
-        self.optimizer_cls = resolve_class(cfg.optimizer_class, optim)
+        self.optimizer_cls = resolve_class(cfg.optimizer_class, optim) # from torch.optim
         self.optimizer_kwargs = cfg.optimizer_kwargs
 
         # --- Criterion
-        self.criterion_cls = resolve_class(cfg.criterion_class, nn)
+        self.criterion_cls = resolve_class(cfg.criterion_class, nn) # from torch.nn
         self.criterion_kwargs = cfg.criterion_kwargs
 
         # --- Scheduler
         self.scheduler_cls = None
         self.scheduler_kwargs = {}
         if cfg.scheduler_class:
-            self.scheduler_cls = resolve_class(cfg.scheduler_class, optim.lr_scheduler)
+            self.scheduler_cls = resolve_class(cfg.scheduler_class, optim.lr_scheduler) # from torch.optim.lr_scheduler
             self.scheduler_kwargs = cfg.scheduler_kwargs
 
         # --- Strategy
-        # Assuming you have your strategies in a module `strategies`
-        self.strategy_cls = resolve_class(cfg.strategy_class, strategies)
+        self.strategy_cls = resolve_class(cfg.strategy_class, strategies) # from our adaptive_al.strategies
         self.strategy_kwargs = cfg.strategy_kwargs
 
         # --- Sampler
-        self.sampler_cls = resolve_class(cfg.sampler_class, samplers)
+        self.sampler_cls = resolve_class(cfg.sampler_class, samplers) # from our adaptive_al.samplers
         self.sampler_kwargs = cfg.sampler_kwargs
 
         # --- Instantiate strategy
@@ -98,6 +104,9 @@ class ActiveLearning:
         self.sampler = self.sampler_cls(**self.sampler_kwargs)
 
     def _initialize_round_tracking(self):
+        """
+        Initialize properties to start round tracking.
+        """
         self.round_stats: List[Dict] = []
         self.final_test_stats: Dict = {}
         self.current_round = 0
@@ -231,6 +240,13 @@ class ActiveLearning:
         return metrics
 
     def _evaluate_model(self, dataset=None):
+        """
+        Evaluating the strategy model based on provided dataset.
+        Args:
+            dataset: dataset to use for evaluation
+
+        Returns: Dict of evaluation metrics such as loss from provided criterion, f1 score, accuracy.
+        """
         # not very nice
         model = self.strategy.model
         model.eval()
