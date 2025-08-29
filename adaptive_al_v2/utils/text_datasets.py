@@ -1,34 +1,33 @@
-from torch.utils.data import Dataset
+from typing import Any
+
 import torch
+from torch.utils.data import Dataset
 
-class SimpleTextDataset(Dataset):
-    """Simple dataset"""
-
-    def __init__(self, texts, labels):
+class TextClassificationDataset(Dataset):
+    """
+    A custom dataset class for text classification.
+    """
+    def __init__(self, texts: list[str], labels: list[int], tokenizer: Any, tokenizer_kwargs: dict):
         self.texts = texts
         self.labels = labels
-
-    def _text_to_tensor(self, text):
-        """Convert text to a simple tensor representation"""
-        # Simple approach: use text length and character count as features
-        text_str = str(text)
-
-        # Create simple features
-        length = len(text_str)
-        num_words = len(text_str.split())
-        num_chars = len([c for c in text_str if c.isalpha()])
-
-        # Return as tensor (3 features)
-        return torch.tensor([length, num_words, num_chars], dtype=torch.float32)
+        self.tokenizer = tokenizer
+        self.tokenizer_kwargs = tokenizer_kwargs
 
     def __len__(self):
         return len(self.texts)
 
     def __getitem__(self, idx):
-        # Convert text to tensor
-        text_tensor = self._text_to_tensor(self.texts[idx])
+        text = self.texts[idx]
+        label = self.labels[idx]
 
-        # Convert label to tensor
-        label_tensor = torch.tensor(self.labels[idx], dtype=torch.long)
+        # Tokenize the text
+        encoding = self.tokenizer(text, **self.tokenizer_kwargs)
 
-        return text_tensor, label_tensor
+        # The tokenizer returns a dictionary with batch dimension 1, so we squeeze it.
+        # The DataLoader will add the batch dimension back.
+        inputs = {
+            'input_ids': encoding['input_ids'].squeeze(),
+            'attention_mask': encoding['attention_mask'].squeeze()
+        }
+
+        return inputs, torch.tensor(label, dtype=torch.long)

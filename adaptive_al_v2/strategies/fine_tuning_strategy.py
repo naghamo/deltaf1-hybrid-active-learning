@@ -35,11 +35,14 @@ class FineTuneStrategy(BaseStrategy):
 
             for batch in dataloader:
                 inputs, targets = batch
-                inputs, targets = inputs.to(self.device), targets.to(self.device)
+                inputs = {key: tensor.to(self.device) for key, tensor in inputs.items()}
+                targets = targets.to(self.device)
 
                 self.optimizer.zero_grad()
-                outputs = self.model(inputs)
-                loss = self.criterion(outputs, targets)
+                outputs = self.model(**inputs)
+
+                logits = outputs['logits']
+                loss = self.criterion(logits, targets)
                 loss.backward()
                 self.optimizer.step()
 

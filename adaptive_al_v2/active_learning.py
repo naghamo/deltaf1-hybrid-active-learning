@@ -7,6 +7,9 @@ from typing import List, Dict, Any, Optional
 import numpy as np
 import torch
 
+from .utils.text_datasets import TextClassificationDataset
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
 import torch.nn as nn
 import torch.optim as optim
 
@@ -17,14 +20,12 @@ from .pool import DataPool
 
 import adaptive_al_v2.strategies as strategies
 import adaptive_al_v2.samplers as samplers
-import adaptive_al_v2.models as models
 
 from sklearn.metrics import f1_score, accuracy_score
 from torch.utils.data import DataLoader
 
-# Temporary
 from .utils.data_loader import load_agnews
-from .utils.text_datasets import SimpleTextDataset
+
 
 
 
@@ -33,14 +34,31 @@ class ActiveLearning:
 
     def __init__(self, cfg: ExperimentConfig):
         self.cfg = cfg
-        self.train_dataset, self.val_dataset, self.test_dataset = self._load_data()
         self._initialize()
 
     def _initialize(self):
         """Initialize everything for the active learning rounds."""
+        self._initialize_model_and_tokenizer()
+
+        self._initialize_data()
         self._initialize_pool()
+
         self._initialize_classes()
         self._initialize_round_tracking()
+
+    def _initialize_model_and_tokenizer(self):
+        """Loads the model and tokenizer from Hugging Face."""
+        logging.info(f"Loading tokenizer and model from '{self.cfg.model_name_or_path}'...")
+        self.tokenizer = AutoTokenizer.from_pretrained(self.cfg.model_name_or_path)
+        self.model = AutoModelForSequenceClassification.from_pretrained(
+            self.cfg.model_name_or_path,
+            num_labels=self.cfg.num_labels
+        )
+
+    def _initialize_data(self):
+        """Initialize datasets"""
+        self.train_dataset, self.val_dataset, self.test_dataset = self._load_data()
+        logging.info(f"Train size: {len(self.train_dataset)}, Validation size: {len(self.val_dataset)}, Test size: {len(self.test_dataset)}")
 
     def _initialize_pool(self):
         """
@@ -56,10 +74,6 @@ class ActiveLearning:
         Resolve the provided class names. Each one needs to be properly stored in corresponding module.
         """
         cfg = self.cfg
-
-        # --- Model
-        self.model_cls = resolve_class(cfg.model_class, models) # from our adaptive_al.models
-        self.model_kwargs = cfg.model_kwargs
 
         # --- Optimizer
         self.optimizer_cls = resolve_class(cfg.optimizer_class, optim) # from torch.optim
@@ -86,8 +100,7 @@ class ActiveLearning:
 
         # --- Instantiate strategy
         self.strategy = self.strategy_cls(
-            model_cls=self.model_cls,
-            model_kwargs=self.model_kwargs,
+            model=self.model, # Passing model instance
             optimizer_cls=self.optimizer_cls,
             optimizer_kwargs=self.optimizer_kwargs,
             criterion_cls=self.criterion_cls,
@@ -101,7 +114,7 @@ class ActiveLearning:
         )
 
         # --- Instantiate sampler
-        self.sampler = self.sampler_cls(**self.sampler_kwargs)
+        self.sampler = self.sampler_cls(model=self.model, batch_size=cfg.batch_size, device=cfg.device, **self.sampler_kwargs)
 
     def _initialize_round_tracking(self):
         """
@@ -112,33 +125,41 @@ class ActiveLearning:
         self.current_round = 0
 
     def _load_data(self):
-        # TODO: LOAD DATASETs HERE BASED ON STR NAME MAYBE BETTER USE ENUMS OR SMTH IDK
-        # TODO: Maybe each data needs a specific dataset class but i think not . . . (if yes add this to config)
+        # TODO: LOAD DATASETs HERE BASED ON STR NAME
+        #  - MAYBE BETTER USE ENUMS OR SMTH IDK
+        #  - OR MAKE IT A SEPERATE LOGIC FROM THIS CLASS
+        #  - Maybe each data needs a specific dataset class but i think not . . . (if yes add this to config)
         data_name = self.cfg.data
         if data_name != 'agnews':
             raise ValueError(f"Not supported yet its kinda messy")
 
         # Make sure the index is reset, or we need to change the pool initialization
-        df_train, df_val, df_test = load_agnews(path='data')
+        df_train, df_val, df_test = load_agnews(path='data', seed=self.cfg.seed)
 
         df_train = df_train.reset_index(drop=True)
         df_val = df_val.reset_index(drop=True)
         df_test = df_test.reset_index(drop=True)
 
         # Create datasets
-        train_dataset = SimpleTextDataset(
+        train_dataset = TextClassificationDataset(
             texts=df_train['text'].tolist(),
-            labels=df_train['label'].tolist()
+            labels=df_train['label'].tolist(),
+            tokenizer=self.tokenizer,
+            tokenizer_kwargs=self.cfg.tokenizer_kwargs,
         )
 
-        val_dataset = SimpleTextDataset(
+        val_dataset = TextClassificationDataset(
             texts=df_val['text'].tolist(),
-            labels=df_val['label'].tolist()
+            labels=df_val['label'].tolist(),
+            tokenizer=self.tokenizer,
+            tokenizer_kwargs=self.cfg.tokenizer_kwargs,
         )
 
-        test_dataset = SimpleTextDataset(
+        test_dataset = TextClassificationDataset(
             texts=df_test['text'].tolist(),
-            labels=df_test['label'].tolist()
+            labels=df_test['label'].tolist(),
+            tokenizer=self.tokenizer,
+            tokenizer_kwargs=self.cfg.tokenizer_kwargs,
         )
 
         return train_dataset, val_dataset, test_dataset
@@ -203,7 +224,7 @@ class ActiveLearning:
             logging.warning("No unlabeled data remaining!")
             return []
 
-        selected_indices = self.sampler.select(self.pool, self.strategy.model, self.cfg.acquisition_batch_size)
+        selected_indices = self.sampler.select(self.pool, self.cfg.acquisition_batch_size)
         # DO NOT ADD THEM TO THE POOL RIGHT AWAY DUMBAHH
         # Letting the strategy decide what to do with it
         # self.pool.add_labeled_samples(selected_indices)
@@ -247,8 +268,7 @@ class ActiveLearning:
 
         Returns: Dict of evaluation metrics such as loss from provided criterion, f1 score, accuracy.
         """
-        # not very nice
-        model = self.strategy.model
+        model = self.model
         model.eval()
 
         criterion = self.strategy.criterion
@@ -263,15 +283,16 @@ class ActiveLearning:
 
         with torch.no_grad():
             for inputs, targets in loader:
-                inputs, targets = inputs.to(device), targets.to(device)
-                outputs = model(inputs)
-                loss = criterion(outputs, targets)
+                inputs = {key: tensor.to(device) for key, tensor in inputs.items()}
+                targets = targets.to(device)
+
+                outputs = model(**inputs)
+                logits = outputs['logits']
+                loss = criterion(logits, targets)
                 total_loss += loss.item()
 
-                if outputs.shape[-1] == 1:  # binary (if needed idk)
-                    preds = torch.sigmoid(outputs).round()
-                else:                       # multi-class
-                    preds = torch.argmax(outputs, dim=1)
+                # Expecting multi-class (not binary)
+                preds = torch.argmax(logits, dim=1)
 
                 all_preds.append(preds.cpu())
                 all_labels.append(targets.cpu())
@@ -316,7 +337,6 @@ class ActiveLearning:
             json.dump(summary, f, indent=2, default=str)  # default=str handles any residual non-serializable objects
 
         logging.info(f"Experiment saved to {filepath}")
-
 
 
 def resolve_class(name: str, module) -> Any:

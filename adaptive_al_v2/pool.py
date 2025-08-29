@@ -1,5 +1,6 @@
 from typing import List, Dict, Any, Tuple, Optional, Set
 from torch.utils.data import Subset
+from scipy.stats import entropy
 
 class DataPool:
     """Manages labeled and unlabeled data pools."""

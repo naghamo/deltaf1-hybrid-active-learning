@@ -8,14 +8,16 @@ import logging
 class RandomSampler(BaseSampler):
     """Random sampling strategy - selects samples randomly from unlabeled pool."""
 
-    def __init__(self, seed: int = None):
+    def __init__(self, seed: int = None, **kwargs):
+        super().__init__(**kwargs)
         self.seed = seed
+
         if seed is not None:
             random.seed(seed)
         else:
             logging.warning("No seed was provided for RandomSampler.")
 
-    def select(self, pool: DataPool, model: Any, batch_size: int) -> List[int]:
+    def select(self, pool: DataPool, acquisition_batch_size: int) -> List[int]:
         """Randomly select batch_size samples from unlabeled pool."""
         unlabeled_indices = pool.get_unlabeled_indices()
 
@@ -23,7 +25,7 @@ class RandomSampler(BaseSampler):
             return []
 
         # Don't sample more than available
-        actual_batch_size = min(batch_size, len(unlabeled_indices))
+        actual_batch_size = min(acquisition_batch_size, len(unlabeled_indices))
 
         # Random sampling without replacement
         selected_indices = random.sample(unlabeled_indices, actual_batch_size)

@@ -3,6 +3,8 @@ import time
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Any, Tuple
 
+from torch import nn
+
 from ..config import ExperimentConfig
 from ..pool import DataPool
 
@@ -11,14 +13,16 @@ class BaseStrategy(ABC):
     """Base class for training strategies."""
 
     def __init__(self,
-                 model_cls, model_kwargs,
+                 model: nn.Module, # CHANGED: from model_cls, model_kwargs
                  optimizer_cls, optimizer_kwargs,
                  criterion_cls, criterion_kwargs,
                  scheduler_cls, scheduler_kwargs,
                  device, epochs, batch_size):
 
-        self.model_cls = model_cls
-        self.model_kwargs = model_kwargs
+        # Store the passed-in model instance directly
+        self.model = model
+        self.initial_model_state_dict = model.state_dict() # Store initial weights for reset
+
         self.optimizer_cls = optimizer_cls
         self.optimizer_kwargs = optimizer_kwargs
         self.criterion_cls = criterion_cls
@@ -29,9 +33,13 @@ class BaseStrategy(ABC):
         self.device = device
         self.epochs = epochs
         self.batch_size = batch_size
+
+        self.device = device
+        self.epochs = epochs
+        self.batch_size = batch_size
         # self.round_history: List[Dict] = None
 
-        self._initialize()
+        self._initialize_components()
 
     def train(self, pool: DataPool, new_indices: List[int]) -> Dict:
         """
@@ -62,12 +70,13 @@ class BaseStrategy(ABC):
 
         return final_stats
 
-    def _initialize(self):
-        self.model = self.model_cls(**self.model_kwargs).to(self.device)
+    def _initialize_components(self):
+        """Initialize components for training via this straegy."""
+        self.model.to(self.device)
         self.optimizer = self.optimizer_cls(self.model.parameters(), **self.optimizer_kwargs)
         self.criterion = self.criterion_cls(**self.criterion_kwargs)
 
-        self.scheduler = None  # Not necessary
+        self.scheduler = None
         if self.scheduler_cls is not None:
             self.scheduler = self.scheduler_cls(self.optimizer, **self.scheduler_kwargs)
 
@@ -76,7 +85,7 @@ class BaseStrategy(ABC):
     def reset(self):
         """Reset model to initial state by recreating it."""
         logging.info("Resetting model to initial state . . .")
-        self._initialize()
+        self._initialize_components()
 
     @abstractmethod
     def _train_implementation(self, pool: DataPool, new_indices: List[int]) -> Dict:

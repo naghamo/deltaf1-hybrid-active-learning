@@ -28,9 +28,16 @@ class ExperimentConfig:
     strategy_class: str = field(default=None)
     strategy_kwargs: Dict[str, Any] = field(default_factory=dict)
 
-    # Model configuration
-    model_class: str = field(default=None)
-    model_kwargs: Dict[str, Any] = field(default_factory=dict)
+    # Model configuration (via transformers)
+    model_name_or_path: str = field(default='None')
+    num_labels: int = field(default=None)
+    tokenizer_kwargs: Dict[str, Any] = field(default_factory=lambda: {
+        "max_length": 128,
+        "padding": "max_length",
+        "truncation": True,
+        "add_special_tokens": True,
+        "return_tensors": "pt"
+    })
 
     # Optimizer / Criterion / Scheduler configuration
     optimizer_class: str = field(default=None)
@@ -55,8 +62,10 @@ class ExperimentConfig:
 
     def __post_init__(self):
         """Validate required fields and ensure kwargs are dictionaries."""
-        if self.model_class is None:
-            raise ValueError("model_class is required in ExperimentConfig")
+        if self.model_name_or_path is None:
+            raise ValueError("model_name_or_path is required in ExperimentConfig")
+        if self.num_labels is None:
+            raise ValueError("num_labels is required in ExperimentConfig")
         if self.strategy_class is None:
             raise ValueError("strategy_class is required in ExperimentConfig")
         if self.sampler_class is None:
