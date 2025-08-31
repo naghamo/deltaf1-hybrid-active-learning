@@ -11,4 +11,18 @@ class NewOnlyStrategy(BaseStrategy):
         super().__init__(**kwargs)
 
     def _train_implementation(self, pool: DataPool, new_indices: List[int]) -> Dict:
-        pass
+        """
+        Fine-tunes the model for epochs using only the new data given by the oracle.
+        """
+        if new_indices:
+            pool.add_labeled_samples(new_indices)
+
+        labeled_subset = pool.get_labeled_subset()
+        new_labeled_subset = pool.get_subset_of_labeled_indices(new_indices)
+
+        dataloader = DataLoader(new_labeled_subset, batch_size=self.batch_size, shuffle=True)
+
+        total_loss, num_batches = self._train_epochs(dataloader)
+
+        return self._get_stats(total_loss, num_batches, len(labeled_subset), len(new_indices))
+

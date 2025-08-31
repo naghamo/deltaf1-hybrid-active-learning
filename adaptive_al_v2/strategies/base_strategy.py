@@ -8,6 +8,8 @@ from torch import nn
 from ..config import ExperimentConfig
 from ..pool import DataPool
 
+from transformers import AutoModelForSequenceClassification
+
 
 class BaseStrategy(ABC):
     """Base class for training strategies."""
@@ -70,8 +72,57 @@ class BaseStrategy(ABC):
 
         return final_stats
 
+    def _train_batch(self, batch):
+        inputs, targets = batch
+        inputs = {key: tensor.to(self.device) for key, tensor in inputs.items()}
+        targets = targets.to(self.device)
+
+        self.optimizer.zero_grad()
+        outputs = self.model(**inputs)
+
+        logits = outputs['logits']
+        loss = self.criterion(logits, targets)
+        loss.backward()
+        self.optimizer.step()
+        return loss.item()
+
+    def _train_epochs(self, dataloader) -> tuple[float | Any, int | Any]:
+        total_loss = 0.0
+        num_batches = 0
+
+        # Training loop
+        for _ in self.epochs:
+            epoch_loss = 0.0
+            epoch_batches = 0
+            for batch in dataloader:
+                epoch_loss += self._train_batch(batch)
+                epoch_batches += 1
+            if self.scheduler is not None:
+                self.scheduler.step()
+
+            total_loss += epoch_loss
+            num_batches += epoch_batches
+        return total_loss, num_batches
+
+
+    def _reset_model(self, model_name="distilbert-base-uncased", num_labels=2):
+        self.model = AutoModelForSequenceClassification.from_pretrained(
+            model_name, num_labels=num_labels)
+
+
+    def _get_stats(self, total_loss, num_batches, tot_samples, new_samples):
+        avg_loss = total_loss / num_batches if num_batches > 0 else 0.0
+
+        # Return model and training statistics
+        return {
+            "avg_loss": avg_loss,
+            "epochs": self.epochs,
+            "total_samples": len(tot_samples),
+            "new_samples": len(new_samples) if new_samples is not None else 0,
+        }
+
     def _initialize_components(self):
-        """Initialize components for training via this straegy."""
+        """Initialize components for training via this strategy."""
         self.model.to(self.device)
         self.optimizer = self.optimizer_cls(self.model.parameters(), **self.optimizer_kwargs)
         self.criterion = self.criterion_cls(**self.criterion_kwargs)
