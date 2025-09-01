@@ -1,3 +1,4 @@
+import copy
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -15,7 +16,7 @@ class BaseStrategy(ABC):
     """Base class for training strategies."""
 
     def __init__(self,
-                 model: nn.Module, # CHANGED: from model_cls, model_kwargs
+                 model: nn.Module,
                  optimizer_cls, optimizer_kwargs,
                  criterion_cls, criterion_kwargs,
                  scheduler_cls, scheduler_kwargs,
@@ -23,7 +24,7 @@ class BaseStrategy(ABC):
 
         # Store the passed-in model instance directly
         self.model = model
-        self.initial_model_state_dict = model.state_dict() # Store initial weights for reset
+        self.initial_model_state_dict = copy.deepcopy(model.state_dict()) # Store initial weights for reset
 
         self.optimizer_cls = optimizer_cls
         self.optimizer_kwargs = optimizer_kwargs
@@ -86,12 +87,12 @@ class BaseStrategy(ABC):
         self.optimizer.step()
         return loss.item()
 
-    def _train_epochs(self, dataloader) -> tuple[float | Any, int | Any]:
+    def train_epochs(self, dataloader) -> tuple[float | Any, int | Any]:
         total_loss = 0.0
         num_batches = 0
 
         # Training loop
-        for _ in self.epochs:
+        for _ in range(self.epochs):
             epoch_loss = 0.0
             epoch_batches = 0
             for batch in dataloader:
@@ -104,13 +105,7 @@ class BaseStrategy(ABC):
             num_batches += epoch_batches
         return total_loss, num_batches
 
-
-    def _reset_model(self, model_name="distilbert-base-uncased", num_labels=2):
-        self.model = AutoModelForSequenceClassification.from_pretrained(
-            model_name, num_labels=num_labels)
-
-
-    def _get_stats(self, total_loss, num_batches, tot_samples, new_samples):
+    def get_stats(self, total_loss, num_batches, tot_samples, new_samples):
         avg_loss = total_loss / num_batches if num_batches > 0 else 0.0
 
         # Return model and training statistics
@@ -123,6 +118,7 @@ class BaseStrategy(ABC):
 
     def _initialize_components(self):
         """Initialize components for training via this strategy."""
+        self.model.load_state_dict(self.initial_model_state_dict)
         self.model.to(self.device)
         self.optimizer = self.optimizer_cls(self.model.parameters(), **self.optimizer_kwargs)
         self.criterion = self.criterion_cls(**self.criterion_kwargs)

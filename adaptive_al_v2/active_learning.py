@@ -21,13 +21,10 @@ from .pool import DataPool
 import adaptive_al_v2.strategies as strategies
 import adaptive_al_v2.samplers as samplers
 
-from sklearn.metrics import f1_score, accuracy_score
 from torch.utils.data import DataLoader
 
 from .utils.data_loader import load_agnews
-
-
-
+from .evaluation import evaluate_model
 
 class ActiveLearning:
     """Manages active learning round by round."""
@@ -196,7 +193,7 @@ class ActiveLearning:
         training_stats = self.strategy.train(self.pool, new_indices)
 
         # Evaluate model
-        val_stats = self._evaluate_model(dataset=self.val_dataset)
+        val_stats = evaluate_model(self.model, self.strategy.criterion, self.cfg.batch_size, dataset=self.val_dataset, device=self.cfg.device)
 
         # Compile round statistics
         # TODO: Add/remove if needed
@@ -255,57 +252,10 @@ class ActiveLearning:
         if self.current_round != total_rounds:
             logging.info(f"\n--- Stopped at {self.current_round} (ran out of samples).")
 
-        metrics = self._evaluate_model(dataset=self.test_dataset)
+        metrics = evaluate_model(self.model, self.strategy.criterion, self.cfg.batch_size, dataset=self.test_dataset, device=self.cfg.device)
         self.final_test_stats = metrics
+
         logging.info(f"Final Test set evaluation: Loss={metrics['loss']}, F1={metrics['f1_score']:.4f}, Acc={metrics['accuracy']:.4f}")
-        return metrics
-
-    def _evaluate_model(self, dataset=None):
-        """
-        Evaluating the strategy model based on provided dataset.
-        Args:
-            dataset: dataset to use for evaluation
-
-        Returns: Dict of evaluation metrics such as loss from provided criterion, f1 score, accuracy.
-        """
-        model = self.model
-        model.eval()
-
-        criterion = self.strategy.criterion
-        device = self.strategy.device
-
-        if dataset is None:
-            dataset = self.val_dataset
-
-        loader = DataLoader(dataset, batch_size=self.cfg.batch_size, shuffle=False)
-        total_loss = 0.0
-        all_preds, all_labels = [], []
-
-        with torch.no_grad():
-            for inputs, targets in loader:
-                inputs = {key: tensor.to(device) for key, tensor in inputs.items()}
-                targets = targets.to(device)
-
-                outputs = model(**inputs)
-                logits = outputs['logits']
-                loss = criterion(logits, targets)
-                total_loss += loss.item()
-
-                # Expecting multi-class (not binary)
-                preds = torch.argmax(logits, dim=1)
-
-                all_preds.append(preds.cpu())
-                all_labels.append(targets.cpu())
-
-        all_preds = torch.cat(all_preds).numpy()
-        all_labels = torch.cat(all_labels).numpy()
-
-        metrics = {
-            "loss": total_loss / len(loader),
-            "f1_score": f1_score(all_labels, all_preds, average="macro"),
-            "accuracy": accuracy_score(all_labels, all_preds)
-        }
-
         return metrics
 
     def get_experiment_summary(self) -> Dict[str, Any]:

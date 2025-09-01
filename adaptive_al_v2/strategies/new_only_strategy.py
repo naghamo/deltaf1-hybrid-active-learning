@@ -22,7 +22,7 @@ class NewOnlyStrategy(BaseStrategy):
 
         dataloader = DataLoader(new_labeled_subset, batch_size=self.batch_size, shuffle=True)
 
-        total_loss, num_batches = self._train_epochs(dataloader)
+        total_loss, num_batches = self.train_epochs(dataloader)
 
-        return self._get_stats(total_loss, num_batches, len(labeled_subset), len(new_indices))
+        return self.get_stats(total_loss, num_batches, labeled_subset, new_indices)
 
