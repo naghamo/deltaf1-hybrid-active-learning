@@ -16,31 +16,31 @@ class BaseStrategy(ABC):
     """Base class for training strategies."""
 
     def __init__(self, *,
-             base_strategy: "BaseStrategy" = None,
-             model: nn.Module = None,
-             optimizer_cls=None, optimizer_kwargs=None,
-             criterion_cls=None, criterion_kwargs=None,
-             scheduler_cls=None, scheduler_kwargs=None,
-             device: str = None, epochs: int = None, batch_size: int = None):
-        if base_strategy is not None:
+                 strategy: "BaseStrategy" = None,
+                 model: nn.Module = None,
+                 optimizer_cls=None, optimizer_kwargs=None,
+                 criterion_cls=None, criterion_kwargs=None,
+                 scheduler_cls=None, scheduler_kwargs=None,
+                 device: str = None, epochs: int = None, batch_size: int = None):
+        if strategy is not None:
             # Initialize from another strategy
-            self.model = base_strategy.model
-            self.optimizer = base_strategy.optimizer
-            self.criterion = base_strategy.criterion
-            self.scheduler = base_strategy.scheduler
+            self.model = strategy.model
+            self.optimizer = strategy.optimizer
+            self.criterion = strategy.criterion
+            self.scheduler = strategy.scheduler
 
-            self.initial_model_state_dict = base_strategy.initial_model_state_dict
+            self.initial_model_state_dict = strategy.initial_model_state_dict
 
-            self.optimizer_cls = base_strategy.optimizer_cls
-            self.optimizer_kwargs = base_strategy.optimizer_kwargs
-            self.criterion_cls = base_strategy.criterion_cls
-            self.criterion_kwargs = base_strategy.criterion_kwargs
-            self.scheduler_cls = base_strategy.scheduler_cls
-            self.scheduler_kwargs = base_strategy.scheduler_kwargs
+            self.optimizer_cls = strategy.optimizer_cls
+            self.optimizer_kwargs = strategy.optimizer_kwargs
+            self.criterion_cls = strategy.criterion_cls
+            self.criterion_kwargs = strategy.criterion_kwargs
+            self.scheduler_cls = strategy.scheduler_cls
+            self.scheduler_kwargs = strategy.scheduler_kwargs
 
-            self.device = base_strategy.device
-            self.epochs = base_strategy.epochs
-            self.batch_size = base_strategy.batch_size
+            self.device = strategy.device
+            self.epochs = strategy.epochs
+            self.batch_size = strategy.batch_size
         else:
             # Store the passed-in class/kwargs
             self.model = model

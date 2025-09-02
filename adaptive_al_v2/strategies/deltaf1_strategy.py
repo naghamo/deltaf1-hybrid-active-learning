@@ -25,8 +25,8 @@ class DeltaF1Strategy(BaseStrategy):
         self.switched = False
         self.prev_f1 = None
 
-        self.fine_tune = FineTuneStrategy(base_strategy=self)
-        self.retrain = RetrainStrategy(base_strategy=self)
+        self.fine_tune = FineTuneStrategy(strategy=self)
+        self.retrain = RetrainStrategy(strategy=self)
 
     def _calc_f1(self, subset_to_evaluate):
         stats = evaluate_model(self.model, self.criterion, self.batch_size, subset_to_evaluate, self.device)
@@ -39,7 +39,8 @@ class DeltaF1Strategy(BaseStrategy):
         stats = self.retrain._train_implementation(pool, new_indices)
 
         # On what to evaluate???
-        cur_f1 = self._calc_f1(pool.val_dataset)
+        # cur_f1 = self._calc_f1(pool.val_dataset)
+        cur_f1 = stats['f1_score']
         delta_f1 = cur_f1 - self.prev_f1 if self.prev_f1 is not None else float('inf') # We dont count the first round right?
         self.prev_f1 = cur_f1
 
@@ -49,7 +50,7 @@ class DeltaF1Strategy(BaseStrategy):
             self.count = 0
 
         if self.count >= self.k and not self.switched:
-            logging.info(f'Switched to finetune at {self.count} consecutive round. Final delta_f1: {delta_f1}')
+            logging.info(f'Switched to finetune after {self.count} consecutive rounds <{self.epsilon}. Final delta_f1: {delta_f1}')
             self.switched = True
         else:
             logging.info(f'delta_f1: {delta_f1}, {self.count} consecutive rounds.')

@@ -35,6 +35,8 @@ class ActiveLearning:
 
     def _initialize(self):
         """Initialize everything for the active learning rounds."""
+        self.set_seeds(self.cfg.seed)
+
         self._initialize_model_and_tokenizer()
 
         self._initialize_data()
@@ -96,6 +98,9 @@ class ActiveLearning:
         self.sampler_kwargs = cfg.sampler_kwargs
 
         # --- Instantiate strategy
+        # if cfg.strategy_class == 'DeltaF1Strategy':
+        #     self.strategy_kwargs['val_dataset'] = self.val_dataset
+
         self.strategy = self.strategy_cls(
             model=self.model, # Passing model instance
             optimizer_cls=self.optimizer_cls,
@@ -107,6 +112,8 @@ class ActiveLearning:
             device=cfg.device,
             epochs=cfg.epochs,
             batch_size=cfg.batch_size,
+            # pool: DataPool = self.pool,
+            # val_dataset=self.val_dataset,
             **self.strategy_kwargs  # optional extra kwargs
         )
 
