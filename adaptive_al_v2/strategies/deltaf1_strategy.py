@@ -3,6 +3,8 @@ from sympy.physics.paulialgebra import epsilon
 from torch.utils.data import DataLoader
 from typing import List, Dict, Any, Tuple
 
+import logging
+
 from .base_strategy import BaseStrategy
 from ..pool import DataPool
 
@@ -38,7 +40,7 @@ class DeltaF1Strategy(BaseStrategy):
 
         # On what to evaluate???
         cur_f1 = self._calc_f1(pool.val_dataset)
-        delta_f1 = cur_f1 - self.prev_f1 if self.prev_f1 is not None else 0
+        delta_f1 = cur_f1 - self.prev_f1 if self.prev_f1 is not None else float('inf') # We dont count the first round right?
         self.prev_f1 = cur_f1
 
         if abs(delta_f1) < self.epsilon:
@@ -47,6 +49,9 @@ class DeltaF1Strategy(BaseStrategy):
             self.count = 0
 
         if self.count >= self.k and not self.switched:
+            logging.info(f'Switched to finetune at {self.count} consecutive round. Final delta_f1: {delta_f1}')
             self.switched = True
+        else:
+            logging.info(f'delta_f1: {delta_f1}, {self.count} consecutive rounds.')
 
         return stats
