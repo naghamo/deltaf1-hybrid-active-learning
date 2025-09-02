@@ -23,34 +23,30 @@ class DeltaF1Strategy(BaseStrategy):
         self.switched = False
         self.prev_f1 = None
 
-        self.fine_tune = FineTuneStrategy(**kwargs)
-        self.retrain = RetrainStrategy(**kwargs)
+        self.fine_tune = FineTuneStrategy(base_strategy=self)
+        self.retrain = RetrainStrategy(base_strategy=self)
 
     def _calc_f1(self, subset_to_evaluate):
-        metrics = evaluate_model(self.model, self.criterion, self.batch_size, subset_to_evaluate, self.device)
-        return metrics['f1_score']
+        stats = evaluate_model(self.model, self.criterion, self.batch_size, subset_to_evaluate, self.device)
+        return stats['f1_score']
 
     def _train_implementation(self, pool: DataPool, new_indices: List[int]) -> Dict:
-        if new_indices:
-            pool.add_labeled_samples(new_indices)
-        labeled_subset = pool.get_labeled_subset()
-        dataloader = DataLoader(labeled_subset, batch_size=self.batch_size, shuffle=True)
-
         if self.switched:
-            total_loss, num_batches = self.fine_tune.train_epochs(dataloader)
+            return self.fine_tune._train_implementation(pool, new_indices)
+
+        stats = self.retrain._train_implementation(pool, new_indices)
+
+        # On what to evaluate???
+        cur_f1 = self._calc_f1(pool.val_dataset)
+        delta_f1 = cur_f1 - self.prev_f1 if self.prev_f1 is not None else 0
+        self.prev_f1 = cur_f1
+
+        if abs(delta_f1) < self.epsilon:
+            self.count += 1
         else:
-            total_loss, num_batches = self.retrain.train_epochs(dataloader)
+            self.count = 0
 
-            # On what to evaluate???
-            cur_f1 = self._calc_f1(labeled_subset)
-            delta_f1 = cur_f1 - self.prev_f1 if self.prev_f1 else 0
+        if self.count >= self.k and not self.switched:
+            self.switched = True
 
-            if abs(delta_f1) < self.epsilon:
-                self.count += 1
-            else:
-                self.count = 0
-
-            if self.count >= self.k and not self.switched:
-                self.switched = True
-
-        return self.get_stats(total_loss, num_batches, labeled_subset, new_indices)
+        return stats

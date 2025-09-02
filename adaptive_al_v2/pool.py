@@ -5,8 +5,10 @@ from scipy.stats import entropy
 class DataPool:
     """Manages labeled and unlabeled data pools."""
 
-    def __init__(self, train_dataset, initial_labeled_indices: List[int]):
-        self.dataset = train_dataset
+    def __init__(self, train_dataset, val_dataset, test_dataset, initial_labeled_indices: List[int]):
+        self.train_dataset = train_dataset
+        self.val_dataset = val_dataset
+        self.test_dataset = test_dataset
 
         # Convert to sets for efficient operations
         self.labeled_indices: Set[int] = set(initial_labeled_indices)
@@ -30,15 +32,15 @@ class DataPool:
 
     def get_subset_of_labeled_indices(self, indices: List[int]) -> Subset:
         assert all(i in self.labeled_indices for i in indices)
-        return Subset(self.dataset, list(indices))
+        return Subset(self.train_dataset, list(indices))
 
     def get_labeled_subset(self):
         """Get Subset for labeled data."""
-        return Subset(self.dataset, list(self.labeled_indices))
+        return Subset(self.train_dataset, list(self.labeled_indices))
 
     def get_unlabeled_subset(self):
         """Get Subset for unlabeled data."""
-        return Subset(self.dataset, list(self.unlabeled_indices))
+        return Subset(self.train_dataset, list(self.unlabeled_indices))
 
     def get_unlabeled_indices(self) -> List[int]:
         """Get list of unlabeled indices."""
@@ -53,5 +55,5 @@ class DataPool:
         return {
             "labeled_count": len(self.labeled_indices),
             "unlabeled_count": len(self.unlabeled_indices),
-            "total_count": len(self.dataset)
+            "total_count": len(self.train_dataset)
         }

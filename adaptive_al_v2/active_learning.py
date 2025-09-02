@@ -64,7 +64,7 @@ class ActiveLearning:
         # Initialize pool with random samples
         all_indices = list(range(len(self.train_dataset)))
         initial_indices = random.sample(all_indices, self.cfg.initial_pool_size)
-        self.pool = DataPool(self.train_dataset, initial_indices)
+        self.pool = DataPool(self.train_dataset, self.val_dataset, self.test_dataset, initial_indices)
 
     def _initialize_classes(self):
         """

@@ -15,8 +15,9 @@ from scipy.stats import entropy
 
 class EntropySampler(BaseSampler):
     """Selects samples with the highest predictive entropy."""
-    def __init__(self, **kwargs):
+    def __init__(self, show_progress=False, **kwargs):
         super().__init__(**kwargs)
+        self.show_progress = show_progress
 
     def select(self, pool: DataPool, num_samples: int) -> List[int]:
         self.model.eval()
@@ -37,8 +38,12 @@ class EntropySampler(BaseSampler):
         all_entropies = []
         # No need for all_indices list anymore
 
+        iterator = dataloader
+        if self.show_progress:
+            iterator = tqdm(dataloader, desc="Entropy Sampling", leave=False)
+
         with torch.no_grad():
-            for batch in dataloader:
+            for batch in iterator:
                 inputs, _ = batch
                 inputs = {key: tensor.to(self.device) for key, tensor in inputs.items()}
 

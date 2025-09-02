@@ -15,34 +15,50 @@ from transformers import AutoModelForSequenceClassification
 class BaseStrategy(ABC):
     """Base class for training strategies."""
 
-    def __init__(self,
-                 model: nn.Module,
-                 optimizer_cls, optimizer_kwargs,
-                 criterion_cls, criterion_kwargs,
-                 scheduler_cls, scheduler_kwargs,
-                 device, epochs, batch_size):
+    def __init__(self, *,
+             base_strategy: "BaseStrategy" = None,
+             model: nn.Module = None,
+             optimizer_cls=None, optimizer_kwargs=None,
+             criterion_cls=None, criterion_kwargs=None,
+             scheduler_cls=None, scheduler_kwargs=None,
+             device: str = None, epochs: int = None, batch_size: int = None):
+        if base_strategy is not None:
+            # Initialize from another strategy
+            self.model = base_strategy.model
+            self.optimizer = base_strategy.optimizer
+            self.criterion = base_strategy.criterion
+            self.scheduler = base_strategy.scheduler
 
-        # Store the passed-in model instance directly
-        self.model = model
-        self.initial_model_state_dict = copy.deepcopy(model.state_dict()) # Store initial weights for reset
+            self.initial_model_state_dict = base_strategy.initial_model_state_dict
 
-        self.optimizer_cls = optimizer_cls
-        self.optimizer_kwargs = optimizer_kwargs
-        self.criterion_cls = criterion_cls
-        self.criterion_kwargs = criterion_kwargs
-        self.scheduler_cls = scheduler_cls
-        self.scheduler_kwargs = scheduler_kwargs
+            self.optimizer_cls = base_strategy.optimizer_cls
+            self.optimizer_kwargs = base_strategy.optimizer_kwargs
+            self.criterion_cls = base_strategy.criterion_cls
+            self.criterion_kwargs = base_strategy.criterion_kwargs
+            self.scheduler_cls = base_strategy.scheduler_cls
+            self.scheduler_kwargs = base_strategy.scheduler_kwargs
 
-        self.device = device
-        self.epochs = epochs
-        self.batch_size = batch_size
+            self.device = base_strategy.device
+            self.epochs = base_strategy.epochs
+            self.batch_size = base_strategy.batch_size
+        else:
+            # Store the passed-in class/kwargs
+            self.model = model
+            self.initial_model_state_dict = copy.deepcopy(model.state_dict()) # Store initial weights for reset
 
-        self.device = device
-        self.epochs = epochs
-        self.batch_size = batch_size
-        # self.round_history: List[Dict] = None
+            self.optimizer_cls = optimizer_cls
+            self.optimizer_kwargs = optimizer_kwargs
+            self.criterion_cls = criterion_cls
+            self.criterion_kwargs = criterion_kwargs
+            self.scheduler_cls = scheduler_cls
+            self.scheduler_kwargs = scheduler_kwargs
 
-        self._initialize_components()
+            self.device = device
+            self.epochs = epochs
+            self.batch_size = batch_size
+            # self.round_history: List[Dict] = None
+
+            self._initialize_components()
 
     def train(self, pool: DataPool, new_indices: List[int]) -> Dict:
         """
@@ -126,8 +142,6 @@ class BaseStrategy(ABC):
         self.scheduler = None
         if self.scheduler_cls is not None:
             self.scheduler = self.scheduler_cls(self.optimizer, **self.scheduler_kwargs)
-
-        self.round_history = []
 
     def reset(self):
         """Reset model to initial state by recreating it."""
