@@ -7,7 +7,6 @@ from typing import List, Dict, Any, Optional
 import numpy as np
 import torch
 
-from .utils.text_datasets import TextClassificationDataset
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 import torch.nn as nn
@@ -21,9 +20,9 @@ from .pool import DataPool
 import adaptive_al_v2.strategies as strategies
 import adaptive_al_v2.samplers as samplers
 
-from torch.utils.data import DataLoader
+# Used in data loading eval string
+from .utils.data_loader import load_agnews, load_imdb, load_jigsaw
 
-from .utils.data_loader import load_agnews
 from .evaluation import evaluate_model
 
 
