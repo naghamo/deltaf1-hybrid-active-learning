@@ -1,8 +1,38 @@
 import os
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from transformers import AutoTokenizer
+from .text_datasets import TextClassificationDataset
 
-def load_agnews(path="../data", val_size=0.1, seed=42):
+
+def tokenize(datasets: list, model_name_or_path: str, tokenizer_kwargs: dict):
+    """
+    Tokenize the train, val and test datasets.
+
+    Args:
+        datasets (list): List of DataFrames to tokenize.
+        model_name_or_path (str): Pretrained model name or path for the tokenizer.
+        tokenizer_kwargs (dict): Additional arguments for the tokenizer.
+
+    Returns:
+        tokenized_datasets (list): List of tokenized datasets.
+    """
+    tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
+    tokenized_datasets = []
+
+    for df in datasets:
+        df.reset_index(drop=True, inplace=True)
+        tokenized_datasets.append(TextClassificationDataset(
+            texts=df['text'].tolist(),
+            labels=df['label'].tolist(),
+            tokenizer=tokenizer,
+            tokenizer_kwargs=tokenizer_kwargs,
+        ))
+
+    return tokenized_datasets
+
+
+def load_agnews(path="../data", val_size=0.1, seed=42, model_name_or_path="bert-base-uncased", tokenizer_kwargs=None):
     """
     Load and preprocess the AG News dataset.
 
@@ -28,10 +58,15 @@ def load_agnews(path="../data", val_size=0.1, seed=42):
     df_test = df_test[["text", "label"]]
 
     df_train, df_val = train_test_split(df_train, test_size=val_size, stratify=df_train["label"], random_state=seed)
-    return df_train, df_val, df_test
+
+    train_dataset, val_dataset, test_dataset = tokenize([df_train, df_val, df_test], model_name_or_path,
+                                                        tokenizer_kwargs or {})
+
+    return train_dataset, val_dataset, test_dataset
 
 
-def load_imdb(path="../data", val_size=0.1, test_size=0.2, seed=42):
+def load_imdb(path="../data", val_size=0.1, test_size=0.2, seed=42, model_name_or_path="bert-base-uncased",
+              tokenizer_kwargs=None):
     """
     Load and preprocess the IMDb sentiment classification dataset.
 
@@ -51,13 +86,17 @@ def load_imdb(path="../data", val_size=0.1, test_size=0.2, seed=42):
     df = df[["review", "label"]].rename(columns={"review": "text"})
 
     df_train_val, df_test = train_test_split(df, test_size=test_size, stratify=df["label"], random_state=seed)
-    df_train, df_val = train_test_split(df_train_val, test_size=val_size, stratify=df_train_val["label"], random_state=seed)
+    df_train, df_val = train_test_split(df_train_val, test_size=val_size, stratify=df_train_val["label"],
+                                        random_state=seed)
 
-    return df_train, df_val, df_test
+    train_dataset, val_dataset, test_dataset = tokenize([df_train, df_val, df_test], model_name_or_path,
+                                                        tokenizer_kwargs or {})
+
+    return train_dataset, val_dataset, test_dataset
 
 
-
-def load_jigsaw(path="../data", val_size=0.1, test_size=0.2, seed=42):
+def load_jigsaw(path="../data", val_size=0.1, test_size=0.2, seed=42, model_name_or_path="bert-base-uncased",
+                tokenizer_kwargs=None):
     """
     Load and preprocess the Jigsaw dataset for multi-label classification.
 
@@ -84,5 +123,7 @@ def load_jigsaw(path="../data", val_size=0.1, test_size=0.2, seed=42):
     for subset in (df_train, df_val, df_test):
         subset.drop(columns=["stratify_label"], inplace=True)
 
-    return df_train.reset_index(drop=True), df_val.reset_index(drop=True), df_test.reset_index(drop=True)
+    train_dataset, val_dataset, test_dataset = tokenize([df_train, df_val, df_test], model_name_or_path,
+                                                        tokenizer_kwargs or {})
 
+    return train_dataset, val_dataset, test_dataset

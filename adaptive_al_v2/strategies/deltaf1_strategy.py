@@ -39,8 +39,8 @@ class DeltaF1Strategy(BaseStrategy):
         stats = self.retrain._train_implementation(pool, new_indices)
 
         # On what to evaluate???
-        # cur_f1 = self._calc_f1(pool.val_dataset)
-        cur_f1 = stats['f1_score']
+        cur_f1 = self._calc_f1(pool.val_dataset)
+        # cur_f1 = stats['f1_score']
         delta_f1 = cur_f1 - self.prev_f1 if self.prev_f1 is not None else float('inf') # We dont count the first round right?
         self.prev_f1 = cur_f1
 

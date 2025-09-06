@@ -26,6 +26,7 @@ from torch.utils.data import DataLoader
 from .utils.data_loader import load_agnews
 from .evaluation import evaluate_model
 
+
 class ActiveLearning:
     """Manages active learning round by round."""
 
@@ -57,7 +58,8 @@ class ActiveLearning:
     def _initialize_data(self):
         """Initialize datasets"""
         self.train_dataset, self.val_dataset, self.test_dataset = self._load_data()
-        logging.info(f"Train size: {len(self.train_dataset)}, Validation size: {len(self.val_dataset)}, Test size: {len(self.test_dataset)}")
+        logging.info(
+            f"Train size: {len(self.train_dataset)}, Validation size: {len(self.val_dataset)}, Test size: {len(self.test_dataset)}")
 
     def _initialize_pool(self):
         """
@@ -75,26 +77,26 @@ class ActiveLearning:
         cfg = self.cfg
 
         # --- Optimizer
-        self.optimizer_cls = resolve_class(cfg.optimizer_class, optim) # from torch.optim
+        self.optimizer_cls = resolve_class(cfg.optimizer_class, optim)  # from torch.optim
         self.optimizer_kwargs = cfg.optimizer_kwargs
 
         # --- Criterion
-        self.criterion_cls = resolve_class(cfg.criterion_class, nn) # from torch.nn
+        self.criterion_cls = resolve_class(cfg.criterion_class, nn)  # from torch.nn
         self.criterion_kwargs = cfg.criterion_kwargs
 
         # --- Scheduler
         self.scheduler_cls = None
         self.scheduler_kwargs = {}
         if cfg.scheduler_class:
-            self.scheduler_cls = resolve_class(cfg.scheduler_class, optim.lr_scheduler) # from torch.optim.lr_scheduler
+            self.scheduler_cls = resolve_class(cfg.scheduler_class, optim.lr_scheduler)  # from torch.optim.lr_scheduler
             self.scheduler_kwargs = cfg.scheduler_kwargs
 
         # --- Strategy
-        self.strategy_cls = resolve_class(cfg.strategy_class, strategies) # from our adaptive_al.strategies
+        self.strategy_cls = resolve_class(cfg.strategy_class, strategies)  # from our adaptive_al.strategies
         self.strategy_kwargs = cfg.strategy_kwargs
 
         # --- Sampler
-        self.sampler_cls = resolve_class(cfg.sampler_class, samplers) # from our adaptive_al.samplers
+        self.sampler_cls = resolve_class(cfg.sampler_class, samplers)  # from our adaptive_al.samplers
         self.sampler_kwargs = cfg.sampler_kwargs
 
         # --- Instantiate strategy
@@ -102,7 +104,7 @@ class ActiveLearning:
         #     self.strategy_kwargs['val_dataset'] = self.val_dataset
 
         self.strategy = self.strategy_cls(
-            model=self.model, # Passing model instance
+            model=self.model,  # Passing model instance
             optimizer_cls=self.optimizer_cls,
             optimizer_kwargs=self.optimizer_kwargs,
             criterion_cls=self.criterion_cls,
@@ -118,7 +120,8 @@ class ActiveLearning:
         )
 
         # --- Instantiate sampler
-        self.sampler = self.sampler_cls(model=self.model, batch_size=cfg.batch_size, device=cfg.device, **self.sampler_kwargs)
+        self.sampler = self.sampler_cls(model=self.model, batch_size=cfg.batch_size, device=cfg.device,
+                                        **self.sampler_kwargs)
 
     def _initialize_round_tracking(self):
         """
@@ -129,42 +132,11 @@ class ActiveLearning:
         self.current_round = 0
 
     def _load_data(self):
-        # TODO: LOAD DATASETs HERE BASED ON STR NAME
-        #  - MAYBE BETTER USE ENUMS OR SMTH IDK
-        #  - OR MAKE IT A SEPERATE LOGIC FROM THIS CLASS
-        #  - Maybe each data needs a specific dataset class but i think not . . . (if yes add this to config)
-        data_name = self.cfg.data
-        if data_name != 'agnews':
-            raise ValueError(f"Not supported yet its kinda messy")
+        dataset_name = self.cfg.data
 
         # Make sure the index is reset, or we need to change the pool initialization
-        df_train, df_val, df_test = load_agnews(path='data', seed=self.cfg.seed)
-
-        df_train = df_train.reset_index(drop=True)
-        df_val = df_val.reset_index(drop=True)
-        df_test = df_test.reset_index(drop=True)
-
-        # Create datasets
-        train_dataset = TextClassificationDataset(
-            texts=df_train['text'].tolist(),
-            labels=df_train['label'].tolist(),
-            tokenizer=self.tokenizer,
-            tokenizer_kwargs=self.cfg.tokenizer_kwargs,
-        )
-
-        val_dataset = TextClassificationDataset(
-            texts=df_val['text'].tolist(),
-            labels=df_val['label'].tolist(),
-            tokenizer=self.tokenizer,
-            tokenizer_kwargs=self.cfg.tokenizer_kwargs,
-        )
-
-        test_dataset = TextClassificationDataset(
-            texts=df_test['text'].tolist(),
-            labels=df_test['label'].tolist(),
-            tokenizer=self.tokenizer,
-            tokenizer_kwargs=self.cfg.tokenizer_kwargs,
-        )
+        train_dataset, val_dataset, test_dataset = eval(
+            f"load_{dataset_name}(path='data', seed={self.cfg.seed}, model_name_or_path='{self.cfg.model_name_or_path}', tokenizer_kwargs={self.cfg.tokenizer_kwargs})")
 
         return train_dataset, val_dataset, test_dataset
 
@@ -200,7 +172,8 @@ class ActiveLearning:
         training_stats = self.strategy.train(self.pool, new_indices)
 
         # Evaluate model
-        val_stats = evaluate_model(self.model, self.strategy.criterion, self.cfg.batch_size, dataset=self.val_dataset, device=self.cfg.device)
+        val_stats = evaluate_model(self.model, self.strategy.criterion, self.cfg.batch_size, dataset=self.val_dataset,
+                                   device=self.cfg.device)
 
         # Compile round statistics
         # TODO: Add/remove if needed
@@ -211,8 +184,9 @@ class ActiveLearning:
         }
 
         self.round_stats.append(round_stats)
-        logging.info(f"Round {self.current_round + 1} complete. Val Stats: Loss={val_stats['loss']}, F1={val_stats['f1_score']}, "
-                     f"Time={training_stats['training_time']:.2f}s")
+        logging.info(
+            f"Round {self.current_round + 1} complete. Val Stats: Loss={val_stats['loss']}, F1={val_stats['f1_score']}, "
+            f"Time={training_stats['training_time']:.2f}s")
 
         self.current_round += 1
         return round_stats
@@ -259,10 +233,12 @@ class ActiveLearning:
         if self.current_round != total_rounds:
             logging.info(f"\n--- Stopped at {self.current_round} (ran out of samples).")
 
-        metrics = evaluate_model(self.model, self.strategy.criterion, self.cfg.batch_size, dataset=self.test_dataset, device=self.cfg.device)
+        metrics = evaluate_model(self.model, self.strategy.criterion, self.cfg.batch_size, dataset=self.test_dataset,
+                                 device=self.cfg.device)
         self.final_test_stats = metrics
 
-        logging.info(f"Final Test set evaluation: Loss={metrics['loss']}, F1={metrics['f1_score']:.4f}, Acc={metrics['accuracy']:.4f}")
+        logging.info(
+            f"Final Test set evaluation: Loss={metrics['loss']}, F1={metrics['f1_score']:.4f}, Acc={metrics['accuracy']:.4f}")
         return metrics
 
     def get_experiment_summary(self) -> Dict[str, Any]:
