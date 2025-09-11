@@ -13,6 +13,11 @@ This approach reduces compute cost while maintaining accuracy.
 We evaluate HybridAL on **AG News**, **IMDb Reviews**, and **Jigsaw Toxic Comments**.  
 
 ---
+## Pipeline  
+
+![Pipeline](media/active_learning_pipeline.png)  
+
+---
 
 ## Repository Structure  
 ```
