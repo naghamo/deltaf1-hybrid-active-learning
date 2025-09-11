@@ -62,7 +62,7 @@ def load_agnews(path="../data", val_size=0.1, seed=42, model_name_or_path="bert-
     train_dataset, val_dataset, test_dataset = tokenize([df_train, df_val, df_test], model_name_or_path,
                                                         tokenizer_kwargs or {})
 
-    return train_dataset, val_dataset, test_dataset
+    return (train_dataset, val_dataset, test_dataset),(df_train.reset_index(drop=True), df_val.reset_index(drop=True), df_test.reset_index(drop=True)) # Also return raw dataframes for inspection
 
 
 def load_imdb(path="../data", val_size=0.1, test_size=0.2, seed=42, model_name_or_path="bert-base-uncased",
@@ -92,7 +92,7 @@ def load_imdb(path="../data", val_size=0.1, test_size=0.2, seed=42, model_name_o
     train_dataset, val_dataset, test_dataset = tokenize([df_train, df_val, df_test], model_name_or_path,
                                                         tokenizer_kwargs or {})
 
-    return train_dataset, val_dataset, test_dataset
+    return (train_dataset, val_dataset, test_dataset),(df_train, df_val, df_test) # return both tokenized and original dfs
 
 
 def load_jigsaw(path="../data", val_size=0.1, test_size=0.2, seed=42, model_name_or_path="bert-base-uncased",
@@ -126,4 +126,4 @@ def load_jigsaw(path="../data", val_size=0.1, test_size=0.2, seed=42, model_name
     train_dataset, val_dataset, test_dataset = tokenize([df_train, df_val, df_test], model_name_or_path,
                                                         tokenizer_kwargs or {})
 
-    return train_dataset, val_dataset, test_dataset
+    return (train_dataset, val_dataset, test_dataset),(df_train, df_val, df_test) # return both tokenized and original dfs
