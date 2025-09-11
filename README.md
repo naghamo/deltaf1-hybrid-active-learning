@@ -170,11 +170,11 @@ After running, results (metrics, config, logs) are saved under `./experiments/<e
 
 ## Datasets
 
-| Dataset | Task Type                    | Size (Train/Test) | #Classes | Notes      |
-| ------- | ---------------------------- |-------------------|----------| ---------- |
-| AG News | Topic classification         | 120k / 7.6k       | 4        | Balanced   |
-| IMDb    | Sentiment analysis           | 25k               | 2        | Balanced   |
-| Jigsaw  | Toxic comment classification | 160k              | 6        | Imbalanced |
+| Dataset | Task Type                    | Size (Train/Test) | #Classes        | Notes      |
+| ------- | ---------------------------- |-------------------|-----------------| ---------- |
+| AG News | Topic classification         | 120k / 7.6k       | 4               | Balanced   |
+| IMDb    | Sentiment analysis           | 25k               | 2               | Balanced   |
+| Jigsaw  | Toxic comment classification | 160k              | 6 (multi-label) | Imbalanced |
 
 Preprocessing and label distributions are analyzed in the `eda_preprocessing/` notebooks.
 
