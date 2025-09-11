@@ -15,6 +15,18 @@ We evaluate HybridAL on **AG News**, **IMDb Reviews**, and **Jigsaw Toxic Commen
 ---
 ## Pipeline  
 
+The project follows the standard **pool-based active learning pipeline**:  
+
+1. **Initialization** – Start with a small labeled dataset and a large pool of unlabeled samples.  
+2. **Model Training** – Train a model on the current labeled pool.  
+3. **Evaluation** – Evaluate the model on a validation set to monitor performance.  
+4. **Querying / Sampling** – Select the most informative samples from the unlabeled pool (e.g., random, entropy, uncertainty).  
+5. **Annotation** – Add the newly labeled samples to the labeled pool.  
+6. **Iteration** – Repeat training, evaluation, and querying until the budget (rounds or labels) is exhausted.  
+7. **Final Testing** – Evaluate the final model on the held-out test set.  
+
+HybridAL extends this pipeline by **adaptively switching the training strategy** (from retraining to fine-tuning) when performance improvements (ΔF1) stabilize, reducing computational costs while preserving accuracy.
+
 ![Pipeline](media/active_learning_pipeline.png)  
 
 ---
