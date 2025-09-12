@@ -31,11 +31,14 @@ def tokenize(datasets: list, model_name_or_path: str, tokenizer_kwargs: dict):
 
     return tokenized_datasets
 
+
 def split_train_val_test(df, label_col, val_size=0.1, test_size=0.2, seed=42):
     df_train_val, df_test = train_test_split(df, test_size=test_size, stratify=df[label_col], random_state=seed)
-    df_train, df_val = train_test_split(df_train_val, test_size=val_size/(1-test_size), stratify=df_train_val[label_col],
+    df_train, df_val = train_test_split(df_train_val, test_size=val_size / (1 - test_size),
+                                        stratify=df_train_val[label_col],
                                         random_state=seed)
     return df_train.reset_index(drop=True), df_val.reset_index(drop=True), df_test.reset_index(drop=True)
+
 
 def load_agnews(path="../data", val_size=0.1, seed=42, model_name_or_path="bert-base-uncased", tokenizer_kwargs=None):
     """
@@ -67,7 +70,9 @@ def load_agnews(path="../data", val_size=0.1, seed=42, model_name_or_path="bert-
     train_dataset, val_dataset, test_dataset = tokenize([df_train, df_val, df_test], model_name_or_path,
                                                         tokenizer_kwargs or {})
 
-    return (train_dataset, val_dataset, test_dataset),(df_train.reset_index(drop=True), df_val.reset_index(drop=True), df_test.reset_index(drop=True)) # Also return raw dataframes for inspection
+    return (train_dataset, val_dataset, test_dataset), (df_train.reset_index(drop=True), df_val.reset_index(drop=True),
+                                                        df_test.reset_index(
+                                                            drop=True))  # Also return raw dataframes for inspection
 
 
 def load_imdb(path="../data", val_size=0.1, test_size=0.2, seed=42, model_name_or_path="bert-base-uncased",
@@ -90,12 +95,14 @@ def load_imdb(path="../data", val_size=0.1, test_size=0.2, seed=42, model_name_o
     df["label"] = df["sentiment"].map({"positive": 1, "negative": 0})
     df = df[["review", "label"]].rename(columns={"review": "text"})
 
-    df_train, df_val, df_test = split_train_val_test(df, label_col="label", val_size=val_size, test_size=test_size, seed=seed)
+    df_train, df_val, df_test = split_train_val_test(df, label_col="label", val_size=val_size, test_size=test_size,
+                                                     seed=seed)
 
     train_dataset, val_dataset, test_dataset = tokenize([df_train, df_val, df_test], model_name_or_path,
                                                         tokenizer_kwargs or {})
 
-    return (train_dataset, val_dataset, test_dataset),(df_train, df_val, df_test) # return both tokenized and original dfs
+    return (train_dataset, val_dataset, test_dataset), (df_train, df_val,
+                                                        df_test)  # return both tokenized and original dfs
 
 
 def load_jigsaw(path="../data", val_size=0.1, test_size=0.2, seed=42, model_name_or_path="bert-base-uncased",
@@ -106,23 +113,16 @@ def load_jigsaw(path="../data", val_size=0.1, test_size=0.2, seed=42, model_name
     Returns train/val/test sets with `text` + the 6 toxic label columns.
     """
     df = pd.read_csv(os.path.join(path, "jigsaw.csv"))
-    label_cols = ['toxic', 'severe_toxic', 'obscene', 'threat', 'insult', 'identity_hate']
+    cols_to_drop = ['id', 'severe_toxic', 'obscene', 'threat', 'insult', 'identity_hate']
+    df.drop(cols_to_drop, axis=1, inplace=True)
 
-    df["text"] = df["comment_text"]
+    df.rename(columns={"comment_text": "text", "toxic": "label"}, inplace=True)
 
-    # Stratify only for splitting (binary flag)
-    df["stratify_label"] = (df[label_cols].sum(axis=1) > 0).astype(int)
-
-    columns_to_keep = ["text"] + label_cols + ["stratify_label"]
-    df = df[columns_to_keep]
-
-    df_train, df_val, df_test = split_train_val_test(df, label_col="stratify_label", val_size=val_size,
-                                                      test_size=test_size, seed=seed)
-
-    for subset in (df_train, df_val, df_test):
-        subset.drop(columns=["stratify_label"], inplace=True)
+    df_train, df_val, df_test = split_train_val_test(df, label_col="label", val_size=val_size,
+                                                     test_size=test_size, seed=seed)
 
     train_dataset, val_dataset, test_dataset = tokenize([df_train, df_val, df_test], model_name_or_path,
                                                         tokenizer_kwargs or {})
 
-    return (train_dataset, val_dataset, test_dataset),(df_train, df_val, df_test) # return both tokenized and original dfs
+    return (train_dataset, val_dataset, test_dataset), (df_train, df_val,
+                                                        df_test)  # return both tokenized and original dfs
