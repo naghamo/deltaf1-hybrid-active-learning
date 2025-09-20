@@ -215,7 +215,6 @@ class ActiveLearning:
             return []
 
         start = time.perf_counter()
-        logging.info("Started searching new samples")
         selected_indices = self.sampler.select(self.pool, self.cfg.acquisition_batch_size)
         # Letting the strategy decide what to do with it
         # self.pool.add_labeled_samples(selected_indices)
@@ -228,9 +227,9 @@ class ActiveLearning:
 
     def calculate_total_rounds_pool_proportion(self, pool_proportion: float):
         if self.cfg.pool_proportion_threshold != -1:
-            return int(len(self.pool.train_dataset)*self.cfg.pool_proportion_threshold/pool_proportion)
+            return int(len(self.pool.train_dataset)*self.cfg.pool_proportion_threshold/self.cfg.acquisition_batch_size)
 
-        return int(len(self.pool.train_dataset)*pool_proportion/self.cfg.acquisition_batch_size)
+        return int(len(self.pool.train_dataset)/self.cfg.acquisition_batch_size)
 
     def run_full_pipeline(self):
         """Running full pipeline of active learning for provided amount of rounds."""

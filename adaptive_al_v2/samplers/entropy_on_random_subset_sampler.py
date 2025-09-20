@@ -10,6 +10,7 @@ class EntropyOnRandomSubsetSampler(EntropySampler):
         super().__init__(**kwargs)
         self.random_subset_size = random_subset_size
 
+
     def get_indices_and_subset(self, pool: DataPool):
         unlabeled_indices = pool.get_unlabeled_indices()
         if len(unlabeled_indices) > self.random_subset_size:

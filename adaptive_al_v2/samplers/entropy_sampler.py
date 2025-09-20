@@ -10,8 +10,6 @@ from tqdm import tqdm
 from .base_sampler import BaseSampler
 from ..pool import DataPool
 
-from scipy.stats import entropy
-
 
 class EntropySampler(BaseSampler):
     """Selects samples with the highest predictive entropy."""

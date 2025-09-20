@@ -17,8 +17,8 @@ class DataPool:
         # History tracking
         self.history: List[Dict] = []
 
-    def get_subset(self, indices:List[int]) -> Subset:
-        Subset(self.train_dataset, list(indices))
+    def get_subset(self, indices: List[int]):
+        return Subset(self.train_dataset, list(indices))
 
     def add_labeled_samples(self, new_indices: List[int]) -> None:
         """Add new samples to labeled pool and remove from unlabeled."""
@@ -32,10 +32,6 @@ class DataPool:
         # Update pools
         self.labeled_indices.update(new_indices_set)
         self.unlabeled_indices -= new_indices_set
-
-    def get_subset_of_labeled_indices(self, indices: List[int]) -> Subset:
-        assert all(i in self.labeled_indices for i in indices)
-        return Subset(self.train_dataset, list(indices))
 
     def get_labeled_subset(self):
         """Get Subset for labeled data."""
