@@ -14,7 +14,7 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
     data_sets_num_labels = {"agnews": 4, "imdb": 2, "jigsaw": 2}
-    switch_epsilon = [0.1, 0.25, 0.5, 0.75]
+    switch_epsilon = [0.05, 0.01, 0.005, 0.001]
     switch_k = [2, 3, 6]
     seeds = [42, 43, 44, 45, 46]
     strategies = ["DeltaF1Strategy", "FineTuneStrategy", "NewOnlyStrategy", "RetrainStrategy"]
