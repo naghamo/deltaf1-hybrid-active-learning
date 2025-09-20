@@ -1,3 +1,4 @@
+import pickle
 from datetime import datetime
 import json
 import random
@@ -7,7 +8,6 @@ import time
 
 import numpy as np
 import torch
-from sqlalchemy.sql.functions import current_time
 
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
@@ -307,6 +307,18 @@ class ActiveLearning:
             json.dump(summary, f, indent=2, default=str)  # default=str handles any residual non-serializable objects
 
         logging.info(f"Experiment saved to {filepath}")
+        # Save model
+        model_path = filepath.with_suffix(".pt")  # default to PyTorch-style extension
+        try:
+            # If it's a PyTorch model
+            torch.save(self.model.state_dict(), model_path)
+            logging.info(f"Model state_dict saved to {model_path}")
+        except Exception:
+            # Otherwise, fall back to pickle
+            model_path = filepath.with_suffix(".pkl")
+            with open(model_path, 'wb') as f:
+                pickle.dump(self.model, f)
+            logging.info(f"Model pickled to {model_path}")
 
 
 def resolve_class(name: str, module) -> Any:
