@@ -3,6 +3,7 @@ import json
 import random
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+import time
 
 import numpy as np
 import torch
@@ -213,11 +214,12 @@ class ActiveLearning:
             logging.warning("No unlabeled data remaining!")
             return []
 
+        start = time.perf_counter()
         selected_indices = self.sampler.select(self.pool, self.cfg.acquisition_batch_size)
         # Letting the strategy decide what to do with it
         # self.pool.add_labeled_samples(selected_indices)
 
-        logging.info(f"Sampled {len(selected_indices)} new samples using {type(self.sampler).__name__}")
+        logging.info(f"Sampled {len(selected_indices)} new samples in {round(time.perf_counter() - start, 2)} seconds, using {type(self.sampler).__name__}")
         return selected_indices
 
     def calculate_total_rounds(self):
