@@ -6,6 +6,7 @@ from typing import List, Dict, Any, Optional
 
 import numpy as np
 import torch
+from sqlalchemy.sql.functions import current_time
 
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
@@ -30,6 +31,8 @@ class ActiveLearning:
     """Manages active learning round by round."""
 
     def __init__(self, cfg: ExperimentConfig):
+        self._no_improve_rounds = 0
+        self.best_stats = {"f1_score": 0.0, "loss": float("inf"), "accuracy": 0.0}
         self.cfg = cfg
         self._initialize()
 
@@ -175,6 +178,9 @@ class ActiveLearning:
         val_stats = evaluate_model(self.model, self.strategy.criterion, self.cfg.batch_size, dataset=self.val_dataset,
                                    device=self.cfg.device)
 
+        # Keep in memory the best performance
+        self._update_best_stats(val_stats)
+
         # Compile round statistics
         # TODO: Add/remove if needed
         round_stats = {
@@ -191,6 +197,11 @@ class ActiveLearning:
         self.current_round += 1
         return round_stats
 
+    def _update_best_stats(self, val_stats):
+        self.best_stats["f1_score"] = max(self.best_stats["f1_score"], val_stats["f1_score"])
+        self.best_stats["loss"] = min(self.best_stats["loss"], val_stats["loss"])
+        self.best_stats["accuracy"] = max(self.best_stats["accuracy"], val_stats["accuracy"])
+
     def sample_next_batch(self) -> List[int]:
         """
         Sample next batch of data to label.
@@ -203,12 +214,17 @@ class ActiveLearning:
             return []
 
         selected_indices = self.sampler.select(self.pool, self.cfg.acquisition_batch_size)
-        # DO NOT ADD THEM TO THE POOL RIGHT AWAY DUMBAHH
         # Letting the strategy decide what to do with it
         # self.pool.add_labeled_samples(selected_indices)
 
         logging.info(f"Sampled {len(selected_indices)} new samples using {type(self.sampler).__name__}")
         return selected_indices
+
+    def calculate_total_rounds(self):
+        return int(len(self.pool.train_dataset)*self.cfg.pool_proportion/self.cfg.acquisition_batch_size)
+
+    def calculate_total_rounds_pool_proportion(self, pool_proportion: float):
+        return int(len(self.pool.train_dataset)*pool_proportion/self.cfg.acquisition_batch_size)
 
     def run_full_pipeline(self):
         """Running full pipeline of active learning for provided amount of rounds."""
@@ -226,7 +242,7 @@ class ActiveLearning:
             self.train_one_round(None)
             new_indices = self.sample_next_batch()
 
-        while new_indices and self.current_round < total_rounds:
+        while new_indices and self.current_round < total_rounds and not self.has_plateaued():
             self.train_one_round(new_indices)
             new_indices = self.sample_next_batch()
 
@@ -240,6 +256,22 @@ class ActiveLearning:
         logging.info(
             f"Final Test set evaluation: Loss={metrics['loss']}, F1={metrics['f1_score']:.4f}, Acc={metrics['accuracy']:.4f}")
         return metrics
+
+    def has_plateaued(self):
+        return self._has_plateaued_f1_based()
+
+    def _has_plateaued_f1_based(self):
+        if self.current_round < self.cfg.min_rounds_before_plateau or self.cfg.plateau_patience == -1:
+            return False
+        current_f1 = self.round_stats[-1]["f1_score"]
+        best_f1 = self.best_stats["f1_score"]
+        if current_f1 - best_f1 < self.cfg.plateau_f1_threshold:
+            self._no_improve_rounds += 1
+        else:
+            self._no_improve_rounds = 0
+        if self._no_improve_rounds >= self.cfg.plateau_patience:
+            return True
+        return False
 
     def get_experiment_summary(self) -> Dict[str, Any]:
         """Get summary of all rounds."""

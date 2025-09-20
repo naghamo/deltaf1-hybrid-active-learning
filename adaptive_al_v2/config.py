@@ -20,6 +20,11 @@ class ExperimentConfig:
     initial_pool_size: int = 200 # Initial size of the pool for training
     acquisition_batch_size: int = 32 # New labels per round
 
+    # Plateau checking:
+    min_rounds_before_plateau: int = -1
+    plateau_patience: int = -1
+    plateau_f1_threshold: float = 0.5
+
     sampler_class: str = field(default=None)
     sampler_kwargs: Dict[str, Any] = field(default_factory=dict)
 
@@ -53,12 +58,18 @@ class ExperimentConfig:
     epochs: int = 5
     batch_size: int = 16
 
+
     # Dataset for the model
     data: str = field(default=None)
 
     # Logging
     save_dir: Path = Path("./experiments")
     experiment_name: str = "dummy"
+
+
+
+
+
 
     def __post_init__(self):
         """Validate required fields and ensure kwargs are dictionaries."""

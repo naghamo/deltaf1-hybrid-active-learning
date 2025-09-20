@@ -28,6 +28,11 @@ if __name__ == "__main__":
     "initial_pool_size" : 200,
     "acquisition_batch_size" : 32,
 
+        # Plateau checking:
+        "min_rounds_before_plateau": 10,
+    "plateau_patience": 5,
+    "plateau_f1_threshold": 0.01,
+
         # Model
     "model_name_or_path" : "distilbert-base-uncased",
     "tokenizer_kwargs" : {
