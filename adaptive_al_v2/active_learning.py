@@ -134,7 +134,8 @@ class ActiveLearning:
         dataset_name = self.cfg.data
 
         # Make sure the index is reset, or we need to change the pool initialization
-        train_dataset, val_dataset, test_dataset = eval(
+        (train_dataset, val_dataset, test_dataset), (df_train, df_val,
+                                                        df_test) = eval(
             f"load_{dataset_name}(path='data', seed={self.cfg.seed}, model_name_or_path='{self.cfg.model_name_or_path}', tokenizer_kwargs={self.cfg.tokenizer_kwargs})")
 
         return train_dataset, val_dataset, test_dataset
