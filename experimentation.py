@@ -69,7 +69,7 @@ if __name__ == "__main__":
         strategy_kwargs_instances = [{'epsilon':e, 'k':k} for k, e in itertools.product(switch_k, switch_epsilon)]\
             if strategy == "DeltaF1Strategy" else [{}]
         for strat_kwargs in strategy_kwargs_instances:
-            experiment_name =  f"{strategy}_{"_".join(strat_kwargs)}_{data_set}_{seed}"
+            experiment_name =  f"{strategy}_{'_'.join(strat_kwargs)}_{data_set}_{seed}"
             config_parameters = common_config_parameters.copy()
 
             config_parameters.update({"experiment_name": experiment_name,
