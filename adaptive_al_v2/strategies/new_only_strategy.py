@@ -18,7 +18,7 @@ class NewOnlyStrategy(BaseStrategy):
             pool.add_labeled_samples(new_indices)
 
         labeled_subset = pool.get_labeled_subset()
-        new_labeled_subset = pool.get_subset_of_labeled_indices(new_indices)
+        new_labeled_subset = pool.get_subset(new_indices)
 
         dataloader = DataLoader(new_labeled_subset, batch_size=self.batch_size, shuffle=True)
 

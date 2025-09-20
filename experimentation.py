@@ -21,69 +21,66 @@ if __name__ == "__main__":
     data_sets = ["agnews", "imdb", "jigsaw"]
     common_config_parameters = {
 
-    "total_rounds" : 5,
-    "save_dir" : Path("./experiments"),
+        "save_dir": Path("./experiments"),
 
         # Pool settings
-    "initial_pool_size" : 200,
-    "acquisition_batch_size" : 32,
+        "initial_pool_size": 200,
+        "acquisition_batch_size": 32,
 
         # Plateau checking:
         "min_rounds_before_plateau": 10,
-    "plateau_patience": 5,
-    "plateau_f1_threshold": 0.01,
-    "pool_proportion_threshold":0.2
+        "plateau_patience": 5,
+        "plateau_f1_threshold": 0.01,
+        "pool_proportion_threshold": 0.001,
 
         # Model
-    "model_name_or_path" : "distilbert-base-uncased",
-    "tokenizer_kwargs" : {
-        "max_length": 128,
-        "padding": "max_length",
-        "truncation": True,
-        "add_special_tokens": True,
-        "return_tensors": "pt"
-    },
+        "model_name_or_path": "distilbert-base-uncased",
+        "tokenizer_kwargs": {
+            "max_length": 128,
+            "padding": "max_length",
+            "truncation": True,
+            "add_special_tokens": True,
+            "return_tensors": "pt"
+        },
 
-    "optimizer_class" : "Adam",
-    "optimizer_kwargs" : {"lr": 2e-5, "weight_decay": 1e-3},
+        "optimizer_class": "Adam",
+        "optimizer_kwargs": {"lr": 2e-5, "weight_decay": 1e-3},
 
-    "criterion_class" : "CrossEntropyLoss",
-    "criterion_kwargs" : {},
+        "criterion_class": "CrossEntropyLoss",
+        "criterion_kwargs": {},
 
-    "scheduler_class" : "StepLR",
-    "scheduler_kwargs" : {"step_size": 10, "gamma": 0.1},
+        "scheduler_class": "StepLR",
+        "scheduler_kwargs": {"step_size": 10, "gamma": 0.1},
 
         # Sampler
-    "sampler_class": "EntropySampler",
-        # sampler_kwargs={"show_progress": True},
+        "sampler_class": "EntropyOnRandomSubsetSampler",
+        "sampler_kwargs": {"random_subset_size": 5000},
 
         # Training
-    "device" : device,
-    "epochs" : 5,
-    "batch_size" : 16
+        "device": device,
+        "epochs": 5,
+        "batch_size": 16
     }
 
     uncommon_config_parameters_instances = itertools.product(switch_epsilon, switch_k, seeds, strategies, data_sets)
 
     for epsilon, k, seed, strategy, data_set in uncommon_config_parameters_instances:
         config_parameters = common_config_parameters.copy()
-        config_parameters.update({"experiment_name":f"{strategy}_{epsilon}_{k}_{seed}",
+        config_parameters.update({"experiment_name": f"{strategy}_{epsilon}_{k}_{seed}",
                                   "data": data_set,
                                   "seed": seed,
                                   "num_labels": data_sets_num_labels[data_set],
                                   "strategy_class": strategy,
-                                  "strategy_kwargs":{"epsilon":epsilon,"k":k},
-                                  #"sampler_kwargs":{"seed":seed}
+                                  "strategy_kwargs": {"epsilon": epsilon, "k": k},
                                   })
 
         experiment_config = ExperimentConfig(**config_parameters)
         al = ActiveLearning(experiment_config)
         final_metrics = al.run_full_pipeline()
         logging.info(
-        "Final Test Metrics: F1=%.4f, Accuracy=%.4f, Loss=%.4f",
-        final_metrics['f1_score'],
-        final_metrics['accuracy'],
-        final_metrics['loss']
+            "Final Test Metrics: F1=%.4f, Accuracy=%.4f, Loss=%.4f",
+            final_metrics['f1_score'],
+            final_metrics['accuracy'],
+            final_metrics['loss']
         )
         al.save_experiment()
-

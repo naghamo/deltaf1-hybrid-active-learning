@@ -19,12 +19,14 @@ class EntropySampler(BaseSampler):
         super().__init__(**kwargs)
         self.show_progress = show_progress
 
+    def get_indices_and_subset(self, pool:DataPool):
+        return pool.get_unlabeled_indices(), pool.get_unlabeled_subset()
+
     def select(self, pool: DataPool, num_samples: int) -> List[int]:
         self.model.eval()
         self.model.to(self.device)
 
-        unlabeled_indices = pool.get_unlabeled_indices()
-        unlabeled_subset = pool.get_unlabeled_subset()
+        unlabeled_indices, unlabeled_subset = self.get_indices_and_subset(pool)
 
         if not unlabeled_indices:
             return []
@@ -67,3 +69,5 @@ class EntropySampler(BaseSampler):
         selected_pool_indices = [unlabeled_indices[i] for i in top_k_indices]
 
         return selected_pool_indices
+
+

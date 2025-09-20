@@ -17,6 +17,9 @@ class DataPool:
         # History tracking
         self.history: List[Dict] = []
 
+    def get_subset(self, indices:List[int]) -> Subset:
+        Subset(self.train_dataset, list(indices))
+
     def add_labeled_samples(self, new_indices: List[int]) -> None:
         """Add new samples to labeled pool and remove from unlabeled."""
         new_indices_set = set(new_indices)
