@@ -221,15 +221,18 @@ class ActiveLearning:
         return selected_indices
 
     def calculate_total_rounds(self):
-        return int(len(self.pool.train_dataset)*self.cfg.pool_proportion/self.cfg.acquisition_batch_size)
+        return self.calculate_total_rounds_pool_proportion(self.cfg.pool_proportion_threshold)
 
     def calculate_total_rounds_pool_proportion(self, pool_proportion: float):
+        if self.cfg.pool_proportion_threshold != -1:
+            return int(len(self.pool.train_dataset)*self.cfg.pool_proportion_threshold/pool_proportion)
+
         return int(len(self.pool.train_dataset)*pool_proportion/self.cfg.acquisition_batch_size)
 
     def run_full_pipeline(self):
         """Running full pipeline of active learning for provided amount of rounds."""
         self._initialize()
-        total_rounds = self.cfg.total_rounds
+        total_rounds = self.calculate_total_rounds()
 
         if total_rounds == -1:
             total_rounds = float('inf')

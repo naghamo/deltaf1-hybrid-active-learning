@@ -25,6 +25,8 @@ class ExperimentConfig:
     plateau_patience: int = -1
     plateau_f1_threshold: float = 0.5
 
+    pool_proportion_threshold: float = 1
+
     sampler_class: str = field(default=None)
     sampler_kwargs: Dict[str, Any] = field(default_factory=dict)
 

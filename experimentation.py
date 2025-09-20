@@ -32,6 +32,7 @@ if __name__ == "__main__":
         "min_rounds_before_plateau": 10,
     "plateau_patience": 5,
     "plateau_f1_threshold": 0.01,
+    "pool_proportion_threshold":0.2
 
         # Model
     "model_name_or_path" : "distilbert-base-uncased",
