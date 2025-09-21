@@ -133,6 +133,7 @@ class ActiveLearning:
         self.round_stats: List[Dict] = []
         self.final_test_stats: Dict = {}
         self.current_round = 0
+        self.start_time = time.perf_counter()
 
     def _load_data(self):
         dataset_name = self.cfg.data
@@ -246,7 +247,8 @@ class ActiveLearning:
             self.train_one_round(None)
             new_indices = self.sample_next_batch()
 
-        while new_indices and self.current_round < total_rounds and not self.has_plateaued():
+        while (new_indices and (not self._timed_out())
+               and self.current_round < total_rounds and not self.has_plateaued()):
             self.train_one_round(new_indices)
             new_indices = self.sample_next_batch()
 
@@ -260,6 +262,9 @@ class ActiveLearning:
         logging.info(
             f"Final Test set evaluation: Loss={metrics['loss']}, F1={metrics['f1_score']:.4f}, Acc={metrics['accuracy']:.4f}")
         return metrics
+
+    def _timed_out(self):
+        return self.cfg.max_seconds!=-1 and time.perf_counter()-self.start_time >= self.cfg.max_seconds
 
     def has_plateaued(self):
         return self._has_plateaued_f1_based()

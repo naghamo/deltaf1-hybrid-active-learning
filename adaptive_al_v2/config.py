@@ -26,6 +26,7 @@ class ExperimentConfig:
     plateau_f1_threshold: float = 0.5
 
     approximate_evaluation_subset_size: int = -1
+    max_seconds:int = -1
 
     pool_proportion_threshold: float = 1
 

@@ -15,7 +15,7 @@ if __name__ == "__main__":
     print(f"Using device: {device}")
     data_sets_num_labels = {"agnews": 4, "imdb": 2, "jigsaw": 2}
     seeds = [42, 43, 44, 45, 46]
-    strategies = ["FineTuneStrategy", "NewOnlyStrategy", "RetrainStrategy", "DeltaF1Strategy"]
+    strategies = ["DeltaF1Strategy", "FineTuneStrategy", "NewOnlyStrategy", "RetrainStrategy",]
     data_sets = ["agnews", "imdb", "jigsaw"]
     common_config_parameters = {
 
@@ -24,6 +24,7 @@ if __name__ == "__main__":
         # Pool settings
         "initial_pool_size": 200,
         "acquisition_batch_size": 32,
+        "max_seconds": 3600,
 
         # Plateau checking:
         "min_rounds_before_plateau": 10,
@@ -72,16 +73,15 @@ if __name__ == "__main__":
         for strat_kwargs in strategy_kwargs_instances:
             experiment_name =  f"{strategy}_{'_'.join([str(v) for v in strat_kwargs.values()])}_{data_set}_{seed}"
             config_parameters = common_config_parameters.copy()
-
             config_parameters.update({"experiment_name": experiment_name,
                                       "data": data_set,
                                       "seed": seed,
                                       "num_labels": data_sets_num_labels[data_set],
                                       "strategy_class": strategy,
                                       "strategy_kwargs": strat_kwargs,
-                                      "sampler_kwargs":{"random_indices_fraction": strat_kwargs["validation_proportion"]}
                                       })
-
+            if strategy == "DeltaF1Strategy":
+                config_parameters["sampler_kwargs"] = {"random_indices_fraction": strat_kwargs["validation_proportion"]}
 
             experiment_config = ExperimentConfig(**config_parameters)
             al = ActiveLearning(experiment_config)
