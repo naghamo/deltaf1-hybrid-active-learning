@@ -215,7 +215,8 @@ class ActiveLearning:
             return []
 
         start = time.perf_counter()
-        selected_indices = self.sampler.select(self.pool, self.cfg.acquisition_batch_size)
+        selected_indices = self.sampler.select(self.pool, self.cfg.acquisition_batch_size,
+                                               **self.strategy.pass_arguments_to_sampler())
         # Letting the strategy decide what to do with it
         # self.pool.add_labeled_samples(selected_indices)
 

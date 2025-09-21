@@ -6,13 +6,12 @@ import random
 class EntropyOnRandomSubsetSampler(EntropySampler):
     """Selects samples with the highest predictive entropy."""
 
-    def __init__(self, random_subset_size, **kwargs):
+    def __init__(self, random_subset_size: int, **kwargs):
         super().__init__(**kwargs)
         self.random_subset_size = random_subset_size
 
-
-    def get_indices_and_subset(self, pool: DataPool):
+    def get_unlabeled_indices(self, pool: DataPool):
         unlabeled_indices = pool.get_unlabeled_indices()
         if len(unlabeled_indices) > self.random_subset_size:
             unlabeled_indices = random.sample(unlabeled_indices, self.random_subset_size)
-        return unlabeled_indices, pool.get_subset(unlabeled_indices)
+        return unlabeled_indices

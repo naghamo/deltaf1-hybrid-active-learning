@@ -158,3 +158,6 @@ class BaseStrategy(ABC):
             new_indices: New indices to train the model on (not yet in pool)
         """
         pass
+
+    def pass_args_to_sampler(self) -> Dict[str, Any]:
+        return {}
