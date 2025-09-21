@@ -14,24 +14,23 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
     data_sets_num_labels = {"agnews": 4, "imdb": 2, "jigsaw": 2}
-    switch_epsilon = [0.1, 0.25, 0.5, 0.75]
-    switch_k = [2, 3, 6]
     seeds = [42, 43, 44, 45, 46]
-    strategies = ["DeltaF1Strategy", "FineTuneStrategy", "NewOnlyStrategy", "RetrainStrategy"]
+    strategies = ["DeltaF1Strategy", "FineTuneStrategy", "NewOnlyStrategy", "RetrainStrategy",]
     data_sets = ["agnews", "imdb", "jigsaw"]
     common_config_parameters = {
 
-        "save_dir": Path("./experiments"),
+        "save_dir": Path("./experiments/sep_21"),
 
         # Pool settings
         "initial_pool_size": 200,
         "acquisition_batch_size": 32,
+        "max_seconds": 3600,
 
         # Plateau checking:
         "min_rounds_before_plateau": 10,
-        "plateau_patience": 5,
-        "plateau_f1_threshold": 0.01,
-        "pool_proportion_threshold": 0.001,
+        "plateau_patience": 10,
+        "plateau_f1_threshold": 0.001,
+        "pool_proportion_threshold": 0.2,
 
         # Model
         "model_name_or_path": "distilbert-base-uncased",
@@ -42,6 +41,7 @@ if __name__ == "__main__":
             "add_special_tokens": True,
             "return_tensors": "pt"
         },
+        "approximate_evaluation_subset_size": 6000,
 
         "optimizer_class": "Adam",
         "optimizer_kwargs": {"lr": 2e-5, "weight_decay": 1e-3},
@@ -53,8 +53,7 @@ if __name__ == "__main__":
         "scheduler_kwargs": {"step_size": 10, "gamma": 0.1},
 
         # Sampler
-        "sampler_class": "EntropyOnRandomSubsetSampler",
-        "sampler_kwargs": {"random_subset_size": 5000},
+        "sampler_class": "RandomSampler",
 
         # Training
         "device": device,
@@ -62,25 +61,35 @@ if __name__ == "__main__":
         "batch_size": 16
     }
 
-    uncommon_config_parameters_instances = itertools.product(switch_epsilon, switch_k, seeds, strategies, data_sets)
+    switch_epsilon = [0.1, 0.05, 0.01, 0.005]
+    switch_k = [2, 3, 6]
+    validation_proportion  = [0.05, 0.1, 0.25]
+    uncommon_config_parameters_instances = itertools.product(strategies, data_sets, seeds)
 
-    for epsilon, k, seed, strategy, data_set in uncommon_config_parameters_instances:
-        config_parameters = common_config_parameters.copy()
-        config_parameters.update({"experiment_name": f"{strategy}_{epsilon}_{k}_{seed}",
-                                  "data": data_set,
-                                  "seed": seed,
-                                  "num_labels": data_sets_num_labels[data_set],
-                                  "strategy_class": strategy,
-                                  "strategy_kwargs": {"epsilon": epsilon, "k": k},
-                                  })
+    for strategy, data_set, seed in uncommon_config_parameters_instances:
+        strategy_kwargs_instances = [{'validation_proportion':v, 'epsilon':e, 'k':k}
+                                     for v, k, e in itertools.product(validation_proportion,switch_k, switch_epsilon)]\
+                                     if strategy == "DeltaF1Strategy" else [{}]
+        for strat_kwargs in strategy_kwargs_instances:
+            experiment_name =  f"{strategy}_{'_'.join([str(v) for v in strat_kwargs.values()])}_{data_set}_{seed}"
+            config_parameters = common_config_parameters.copy()
+            config_parameters.update({"experiment_name": experiment_name,
+                                      "data": data_set,
+                                      "seed": seed,
+                                      "num_labels": data_sets_num_labels[data_set],
+                                      "strategy_class": strategy,
+                                      "strategy_kwargs": strat_kwargs,
+                                      })
+            if strategy == "DeltaF1Strategy":
+                config_parameters["sampler_kwargs"] = {"random_indices_fraction": strat_kwargs["validation_proportion"]}
 
-        experiment_config = ExperimentConfig(**config_parameters)
-        al = ActiveLearning(experiment_config)
-        final_metrics = al.run_full_pipeline()
-        logging.info(
-            "Final Test Metrics: F1=%.4f, Accuracy=%.4f, Loss=%.4f",
-            final_metrics['f1_score'],
-            final_metrics['accuracy'],
-            final_metrics['loss']
-        )
-        al.save_experiment()
+            experiment_config = ExperimentConfig(**config_parameters)
+            al = ActiveLearning(experiment_config)
+            final_metrics = al.run_full_pipeline()
+            logging.info(
+                "Final Test Metrics: F1=%.4f, Accuracy=%.4f, Loss=%.4f",
+                final_metrics['f1_score'],
+                final_metrics['accuracy'],
+                final_metrics['loss']
+            )
+            al.save_experiment()

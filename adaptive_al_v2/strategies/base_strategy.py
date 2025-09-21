@@ -104,11 +104,13 @@ class BaseStrategy(ABC):
         return loss.item()
 
     def train_epochs(self, dataloader) -> tuple[float | Any, int | Any]:
+        start_time = time.time()
         total_loss = 0.0
         num_batches = 0
 
         # Training loop
-        for _ in range(self.epochs):
+        for epoch in range(self.epochs):
+            epoch_start_time = time.time()
             epoch_loss = 0.0
             epoch_batches = 0
             for batch in dataloader:
@@ -117,8 +119,17 @@ class BaseStrategy(ABC):
             if self.scheduler is not None:
                 self.scheduler.step()
 
+            epoch_time = time.time() - epoch_start_time
+            avg_epoch_loss = epoch_loss / epoch_batches if epoch_batches > 0 else 0.0
+            logging.info(
+                f"Epoch {epoch + 1}/{self.epochs} completed in {epoch_time:.2f}s | Avg Loss: {avg_epoch_loss:.4f}")
+
             total_loss += epoch_loss
             num_batches += epoch_batches
+
+        total_time = time.time() - start_time
+        logging.info(f"Training completed in {total_time:.2f}s")
+
         return total_loss, num_batches
 
     def get_stats(self, total_loss, num_batches, tot_samples, new_samples):
