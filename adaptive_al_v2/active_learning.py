@@ -25,7 +25,7 @@ import adaptive_al_v2.samplers as samplers
 # Used in data loading eval string
 from .utils.data_loader import load_agnews, load_imdb, load_jigsaw
 
-from .evaluation import evaluate_model
+from .evaluation import evaluate_model, approximate_evaluate_variance
 
 
 class ActiveLearning:
@@ -176,14 +176,12 @@ class ActiveLearning:
         training_stats = self.strategy.train(self.pool, new_indices)
 
         # Evaluate model
-        val_stats = evaluate_model(self.model, self.strategy.criterion, self.cfg.batch_size, dataset=self.val_dataset,
+        val_stats = evaluate_model(self.model, self.strategy.criterion, self.cfg.batch_size, dataset=self.test_dataset,
                                    device=self.cfg.device)
 
         # Keep in memory the best performance
         self._update_best_stats(val_stats)
 
-        # Compile round statistics
-        # TODO: Add/remove if needed
         round_stats = {
             **training_stats,
             **val_stats,
@@ -216,6 +214,7 @@ class ActiveLearning:
 
         start = time.perf_counter()
         selected_indices = self.sampler.select(self.pool, self.cfg.acquisition_batch_size)
+
         # Letting the strategy decide what to do with it
         # self.pool.add_labeled_samples(selected_indices)
 

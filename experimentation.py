@@ -15,11 +15,11 @@ if __name__ == "__main__":
     print(f"Using device: {device}")
     data_sets_num_labels = {"agnews": 4, "imdb": 2, "jigsaw": 2}
     seeds = [42, 43, 44, 45, 46]
-    strategies = ["DeltaF1Strategy", "FineTuneStrategy", "NewOnlyStrategy", "RetrainStrategy"]
+    strategies = ["FineTuneStrategy", "NewOnlyStrategy", "RetrainStrategy", "DeltaF1Strategy"]
     data_sets = ["agnews", "imdb", "jigsaw"]
     common_config_parameters = {
 
-        "save_dir": Path("./experiments"),
+        "save_dir": Path("./experiments/sep_21"),
 
         # Pool settings
         "initial_pool_size": 200,
@@ -40,6 +40,7 @@ if __name__ == "__main__":
             "add_special_tokens": True,
             "return_tensors": "pt"
         },
+        "approximate_evaluation_subset_size": 6000,
 
         "optimizer_class": "Adam",
         "optimizer_kwargs": {"lr": 2e-5, "weight_decay": 1e-3},
@@ -51,8 +52,7 @@ if __name__ == "__main__":
         "scheduler_kwargs": {"step_size": 10, "gamma": 0.1},
 
         # Sampler
-        "sampler_class": "EntropyOnRandomSubsetSampler",
-        "sampler_kwargs": {"random_subset_size": 5000},
+        "sampler_class": "RandomSampler",
 
         # Training
         "device": device,
@@ -62,14 +62,15 @@ if __name__ == "__main__":
 
     switch_epsilon = [0.1, 0.05, 0.01, 0.005]
     switch_k = [2, 3, 6]
-
+    validation_proportion  = [0.05, 0.1, 0.25]
     uncommon_config_parameters_instances = itertools.product(strategies, data_sets, seeds)
 
     for strategy, data_set, seed in uncommon_config_parameters_instances:
-        strategy_kwargs_instances = [{'epsilon':e, 'k':k} for k, e in itertools.product(switch_k, switch_epsilon)]\
-            if strategy == "DeltaF1Strategy" else [{}]
+        strategy_kwargs_instances = [{'validation_proportion':v, 'epsilon':e, 'k':k}
+                                     for v, k, e in itertools.product(validation_proportion,switch_k, switch_epsilon)]\
+                                     if strategy == "DeltaF1Strategy" else [{}]
         for strat_kwargs in strategy_kwargs_instances:
-            experiment_name =  f"{strategy}_{'_'.join(strat_kwargs)}_{data_set}_{seed}"
+            experiment_name =  f"{strategy}_{'_'.join([str(v) for v in strat_kwargs.values()])}_{data_set}_{seed}"
             config_parameters = common_config_parameters.copy()
 
             config_parameters.update({"experiment_name": experiment_name,
@@ -77,7 +78,8 @@ if __name__ == "__main__":
                                       "seed": seed,
                                       "num_labels": data_sets_num_labels[data_set],
                                       "strategy_class": strategy,
-                                      "strategy_kwargs": strat_kwargs
+                                      "strategy_kwargs": strat_kwargs,
+                                      "sampler_kwargs":{"random_indices_fraction": strat_kwargs["validation_proportion"]}
                                       })
 
 

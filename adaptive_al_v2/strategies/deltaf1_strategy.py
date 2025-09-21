@@ -1,3 +1,5 @@
+import random
+
 import torch
 from sympy.physics.paulialgebra import epsilon
 from torch.utils.data import DataLoader
@@ -14,13 +16,13 @@ from .fine_tuning_strategy import FineTuneStrategy
 from .retrain_strategy import RetrainStrategy
 
 class DeltaF1Strategy(BaseStrategy):
-    def __init__(self, epsilon: float, k: int, **kwargs):
+    def __init__(self, epsilon: float, k: int, validation_fraction:float, **kwargs, ):
         super().__init__(**kwargs)
 
-        # Or anything else specific to the deltaf1 method . . . then pass those in kwargs of cfg
         self.epsilon = epsilon
         self.k = k
-
+        self.validation_indices = []
+        self.validation_fraction = validation_fraction
         self.count = 0
         self.switched = False
         self.prev_f1 = None
@@ -36,12 +38,15 @@ class DeltaF1Strategy(BaseStrategy):
         if self.switched:
             return self.fine_tune._train_implementation(pool, new_indices)
 
-        stats = self.retrain._train_implementation(pool, new_indices)
+        new_validation_indices = new_indices[int(self.validation_fraction * len(new_indices)):]
+        self.validation_indices.extend(new_validation_indices)
+        new_train_indices = new_indices[:len(new_indices) - len(new_validation_indices)]
 
-        # On what to evaluate???
-        cur_f1 = self._calc_f1(pool.val_dataset)
+        stats = self.retrain._train_implementation(pool, new_train_indices)
+
+        cur_f1 = self._calc_f1(pool.get_subset(self.validation_indices))
         # cur_f1 = stats['f1_score']
-        delta_f1 = cur_f1 - self.prev_f1 if self.prev_f1 is not None else float('inf') # We dont count the first round right?
+        delta_f1 = cur_f1 - self.prev_f1 if self.prev_f1 is not None else float('inf') # We don't count the first round right?
         self.prev_f1 = cur_f1
 
         if abs(delta_f1) < self.epsilon:

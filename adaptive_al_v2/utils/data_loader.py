@@ -75,7 +75,7 @@ def load_agnews(path="../data", val_size=0.1, seed=42, model_name_or_path="bert-
                                                             drop=True))  # Also return raw dataframes for inspection
 
 
-def load_imdb(path="../data", val_size=0.1, test_size=0.2, seed=42, model_name_or_path="bert-base-uncased",
+def load_imdb(path="../data", val_size=0, test_size=0.02, seed=42, model_name_or_path="bert-base-uncased",
               tokenizer_kwargs=None):
     """
     Load and preprocess the IMDb sentiment classification dataset.
@@ -105,7 +105,7 @@ def load_imdb(path="../data", val_size=0.1, test_size=0.2, seed=42, model_name_o
                                                         df_test)  # return both tokenized and original dfs
 
 
-def load_jigsaw(path="../data", val_size=0.1, test_size=0.2, seed=42, model_name_or_path="bert-base-uncased",
+def load_jigsaw(path="../data", val_size=0, test_size=0.02, seed=42, model_name_or_path="bert-base-uncased",
                 tokenizer_kwargs=None):
     """
     Load and preprocess the Jigsaw dataset for multi-label classification.
