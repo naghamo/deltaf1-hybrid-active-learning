@@ -1,7 +1,8 @@
-from . import models
 from . import samplers
 from . import strategies
+from . import utils
+from .active_learning import ActiveLearning
 
-__all__ = ['models', 'samplers', 'strategies']
+__all__ = ['samplers', 'strategies', 'utils']
 
 # Add as necessary ...

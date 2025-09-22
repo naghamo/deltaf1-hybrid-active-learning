@@ -1,46 +1,27 @@
 import torch
-from torch.utils.data import Subset, DataLoader
-from abc import ABC
-from typing import List
-from base_strategy import BaseStrategy
+from torch.utils.data import DataLoader
+from typing import List, Dict, Any, Tuple
+
+from .base_strategy import BaseStrategy
+from ..pool import DataPool
 
 
-class FineTuneStrategy(BaseStrategy, ABC):
-    def __init__(self, model, model_class, model_kwargs, pool, dataset, optimizer_class, optimizer_kwargs, criterion,
-                 device='cpu', epochs=3, batch_size=16):
-        super().__init__(model, model_class, model_kwargs, pool)
-        self.train_indices = []  # indices of the all the examples we've gathered so far
-        self.dataset = dataset  # full dataset, supports indexing
-        self.criterion = criterion
-        self.optimizer_class = optimizer_class
-        self.optimizer_kwargs = optimizer_kwargs
-        self.device = device
-        self.epochs = epochs
-        self.batch_size = batch_size
+class FineTuneStrategy(BaseStrategy):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
-        self.model.to(self.device)
-
-    def train_round(self, new_indices: List[int], round_i: int) -> None:
+    def _train_implementation(self, pool: DataPool, new_indices: List[int]) -> Dict:
         """
-        Fine-tunes the model for `x` epochs using only the new datapoints.
+        Fine-tunes the model for epochs using all labeled data so far.
         """
         self.model.train()  # Set the model to training mode
-        self.train_indices.extend(new_indices)  # Update the indices of the examples we've gathered so far
+        self.model.to(self.device)
 
-        # Get the data from the train indices
-        subset = Subset(self.dataset, self.train_indices)
-        dataloader = DataLoader(subset, batch_size=self.batch_size, shuffle=True)
+        if new_indices:
+            pool.add_labeled_samples(new_indices)
 
-        # Create a new optimizer for fine-tuning
-        optimizer = self.optimizer_class(self.model.parameters(), **self.optimizer_kwargs)
-
-        for epoch in range(self.epochs):
-            for batch in dataloader:
-                inputs, targets = batch
-                inputs, targets = inputs.to(self.device), targets.to(self.device)
-
-                optimizer.zero_grad()
-                outputs = self.model(inputs)
-                loss = self.criterion(outputs, targets)
-                loss.backward()
-                optimizer.step()
+        # Get all labeled data from the pool
+        labeled_subset = pool.get_labeled_subset()
+        dataloader = DataLoader(labeled_subset, batch_size=self.batch_size, shuffle=True)
+        total_loss, num_batches = self.train_epochs(dataloader)
+        return self.get_stats(total_loss, num_batches, labeled_subset, new_indices)

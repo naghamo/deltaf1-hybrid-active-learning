@@ -19,8 +19,8 @@ import logging
 from .config import ExperimentConfig
 from .pool import DataPool
 
-import adaptive_al_v2.strategies as strategies
-import adaptive_al_v2.samplers as samplers
+import adaptive_al.strategies as strategies
+import adaptive_al.samplers as samplers
 
 # Used in data loading eval string
 from .utils.data_loader import load_agnews, load_imdb, load_jigsaw
@@ -33,8 +33,9 @@ class ActiveLearning:
 
     def __init__(self, cfg: ExperimentConfig):
         self._no_improve_rounds = 0
-        self.best_stats = {"f1_score": 0.0, "loss": float("inf"), "accuracy": 0.0}
+        self.last_stats = {"f1_score": 0.0, "loss": float("inf"), "accuracy": 0.0}
         self.cfg = cfg
+        self.start_time = 0
         self._initialize()
 
     def _initialize(self):
@@ -48,6 +49,10 @@ class ActiveLearning:
 
         self._initialize_classes()
         self._initialize_round_tracking()
+
+    def _initialize_timer(self):
+        self.start_time = time.perf_counter()
+        self.start_time = time.perf_counter()
 
     def _initialize_model_and_tokenizer(self):
         """Loads the model and tokenizer from Hugging Face."""
@@ -179,11 +184,9 @@ class ActiveLearning:
         val_stats = evaluate_model(self.model, self.strategy.criterion, self.cfg.batch_size, dataset=self.val_dataset,
                                    device=self.cfg.device)
 
-        # Keep in memory the best performance
-        self._update_best_stats(val_stats)
+        # Keep in memory last performance
+        self._update_last_stats(val_stats)
 
-        # Compile round statistics
-        # TODO: Add/remove if needed
         round_stats = {
             **training_stats,
             **val_stats,
@@ -198,10 +201,10 @@ class ActiveLearning:
         self.current_round += 1
         return round_stats
 
-    def _update_best_stats(self, val_stats):
-        self.best_stats["f1_score"] = max(self.best_stats["f1_score"], val_stats["f1_score"])
-        self.best_stats["loss"] = min(self.best_stats["loss"], val_stats["loss"])
-        self.best_stats["accuracy"] = max(self.best_stats["accuracy"], val_stats["accuracy"])
+    def _update_last_stats(self, val_stats):
+        self.last_stats["f1_score"] =  val_stats["f1_score"]
+        self.last_stats["loss"] = val_stats["loss"]
+        self.last_stats["accuracy"] = val_stats["accuracy"]
 
     def sample_next_batch(self) -> List[int]:
         """
@@ -215,7 +218,7 @@ class ActiveLearning:
             return []
 
         start = time.perf_counter()
-        selected_indices = self.sampler.select(self.pool, self.cfg.acquisition_batch_size)
+        selected_indices = self.sampler.select(self.pool, self.cfg.acquisition_batch_size, **self.strategy.pass_args_to_sampler())
         # Letting the strategy decide what to do with it
         # self.pool.add_labeled_samples(selected_indices)
 
@@ -223,7 +226,13 @@ class ActiveLearning:
         return selected_indices
 
     def calculate_total_rounds(self):
-        return self.calculate_total_rounds_pool_proportion(self.cfg.pool_proportion_threshold)
+        if self.cfg.total_rounds != -1:
+            return self.cfg.total_rounds
+
+        if self.cfg.pool_proportion_threshold != -1:
+            return self.calculate_total_rounds_pool_proportion(self.cfg.pool_proportion_threshold)
+        return self.calculate_total_rounds_pool_proportion(1)
+
 
     def calculate_total_rounds_pool_proportion(self, pool_proportion: float):
         if self.cfg.pool_proportion_threshold != -1:
@@ -247,7 +256,7 @@ class ActiveLearning:
             self.train_one_round(None)
             new_indices = self.sample_next_batch()
 
-        while new_indices and self.current_round < total_rounds and not self.has_plateaued():
+        while new_indices and self.current_round < total_rounds and not self.has_plateaued() and not self._timedout():
             self.train_one_round(new_indices)
             new_indices = self.sample_next_batch()
 
@@ -269,8 +278,8 @@ class ActiveLearning:
         if self.current_round < self.cfg.min_rounds_before_plateau or self.cfg.plateau_patience == -1:
             return False
         current_f1 = self.round_stats[-1]["f1_score"]
-        best_f1 = self.best_stats["f1_score"]
-        if current_f1 - best_f1 < self.cfg.plateau_f1_threshold:
+        last_f1 = self.last_stats["f1_score"]
+        if current_f1 - last_f1 < self.cfg.plateau_f1_threshold:
             self._no_improve_rounds += 1
         else:
             self._no_improve_rounds = 0
@@ -287,6 +296,11 @@ class ActiveLearning:
             "final_pool_stats": self.pool.get_pool_stats(),
             "final_test_stats": self.final_test_stats
         }
+
+    def _timedout(self):
+        now = time.perf_counter()
+        lim = self.cfg.max_seconds
+        return time.perf_counter() - self.start_time > self.cfg.max_seconds
 
     def save_experiment(self, filepath: Optional[Path] = None, timestamp: bool = True) -> None:
         """Save experiment results to a JSON file."""

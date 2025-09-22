@@ -23,17 +23,23 @@ class EntropySampler(BaseSampler):
     def get_unlabeled_indices(self, pool: DataPool):
         return pool.get_unlabeled_indices()
 
+    def _are_unlabeled(self,pool, suspicious_indices):
+        unlabeled = pool.get_unlabeled_indices()
+        return all(i in unlabeled for i in suspicious_indices)
+
     def select(self, pool: DataPool, num_samples: int, random_indices_fraction: float = 0) -> List[int]:
+        print(f"Random indices fraction: {random_indices_fraction}")
         self.model.eval()
         self.model.to(self.device)
 
         unlabeled_indices = self.get_unlabeled_indices(pool)
+
+
         if len(unlabeled_indices) < num_samples:
             return unlabeled_indices
         random_indices_len = int(num_samples * random_indices_fraction)
         high_entropy_indices_len = num_samples - random_indices_len
         selected_indices = random.sample(unlabeled_indices, random_indices_len)
-
         unlabeled_indices = [i for i in unlabeled_indices if i not in selected_indices]
 
         if not unlabeled_indices:
@@ -74,5 +80,6 @@ class EntropySampler(BaseSampler):
         top_k_indices = np.argpartition(all_entropies, -high_entropy_indices_len)[-high_entropy_indices_len:]
 
         # Map these indices back to the original unlabeled_indices
-        selected_indices.extend(list(top_k_indices))
+        selected_indices.extend([unlabeled_indices[i] for i in list(top_k_indices)])
+
         return selected_indices

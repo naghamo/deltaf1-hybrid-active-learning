@@ -38,9 +38,12 @@ class DeltaF1Strategy(BaseStrategy):
         return stats['f1_score']
 
     def _separate_validation_and_train(self, new_indices: List[int]):
-        new_validation_size = int(len(new_indices)*self.validation_fraction)
-        new_train_size = len(new_indices) - new_validation_size
-        return new_indices[:new_validation_size], new_indices[new_train_size:]
+        if not new_indices:
+            return [], None
+        else:
+            new_validation_size = int(len(new_indices)*self.validation_fraction)
+            new_train_size = len(new_indices) - new_validation_size
+            return new_indices[:new_validation_size], new_indices[new_train_size:]
 
     def _train_implementation(self, pool: DataPool, new_indices: List[int]) -> Dict:
         if self.switched:
@@ -50,10 +53,13 @@ class DeltaF1Strategy(BaseStrategy):
         self.validation_indices.extend(new_validation_indices)
         stats = self.retrain._train_implementation(pool, new_train_indices)
 
+        if not self.validation_indices:
+            return stats
+
+        pool.add_labeled_samples(new_validation_indices)
         # On what to evaluate???
         cur_f1 = self._calc_f1(pool.get_subset(self.validation_indices))
-        # cur_f1 = stats['f1_score']
-        delta_f1 = cur_f1 - self.prev_f1 if self.prev_f1 is not None else float('inf') # We dont count the first round right?
+        delta_f1 = cur_f1 - self.prev_f1 if self.prev_f1 is not None else float('inf')
         self.prev_f1 = cur_f1
 
         if abs(delta_f1) < self.epsilon:

@@ -90,12 +90,12 @@ The full active learning pipeline is implemented in `adaptive_al_v2/active_learn
 - **ExperimentConfig** – defines the experiment settings (dataset, strategy, model, training parameters).  
 - **ActiveLearning** – manages the active learning loop (train, sample, evaluate, save results).  
 
-### Example Usage  
+### Example Usage
 
 ```python
 import torch
 from pathlib import Path
-from adaptive_al_v2.active_learning import ActiveLearning, ExperimentConfig
+from adaptive_al.active_learning import ActiveLearning, ExperimentConfig
 
 # Choose device
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -106,7 +106,7 @@ cfg = ExperimentConfig(
     seed=42,
     total_rounds=5,
     experiment_name="dummy_test_pipeline",
-    save_dir=Path("./experiments"),
+    save_dir=Path("results"),
 
     # Pool settings
     initial_pool_size=200,

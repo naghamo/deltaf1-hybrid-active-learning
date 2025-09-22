@@ -1,42 +1,28 @@
 import torch
-from torch.utils.data import Subset, DataLoader
-from abc import ABC
-from typing import List
-from base_strategy import BaseStrategy
+from torch.utils.data import DataLoader
+from typing import List, Dict, Any, Tuple
+
+from .base_strategy import BaseStrategy
+from ..pool import DataPool
+
 
 class NewOnlyStrategy(BaseStrategy):
-    def __init__(self, model, model_class, model_kwargs, pool, dataset, optimizer_class, optimizer_kwargs, criterion,
-                 device='cpu', epochs=3, batch_size=16):
-        super().__init__(model, model_class, model_kwargs, pool)
-        self.dataset = dataset
-        self.criterion = criterion
-        self.optimizer_class = optimizer_class
-        self.optimizer_kwargs = optimizer_kwargs
-        self.device = device
-        self.epochs = epochs
-        self.batch_size = batch_size
-        self.model.to(self.device)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
-    def train_round(self, new_indices: List[int], round_i: int) -> None:
+    def _train_implementation(self, pool: DataPool, new_indices: List[int]) -> Dict:
         """
-        Fine-tunes the model using only the new datapoints.
+        Fine-tunes the model for epochs using only the new data given by the oracle.
         """
-        self.model.train()
+        if new_indices:
+            pool.add_labeled_samples(new_indices)
 
-        # Get only the new data
-        subset = Subset(self.dataset, new_indices)
-        dataloader = DataLoader(subset, batch_size=self.batch_size, shuffle=True)
+        labeled_subset = pool.get_labeled_subset()
+        new_labeled_subset = pool.get_subset(new_indices)
 
-        # Create a new optimizer for fine-tuning
-        optimizer = self.optimizer_class(self.model.parameters(), **self.optimizer_kwargs)
+        dataloader = DataLoader(new_labeled_subset, batch_size=self.batch_size, shuffle=True)
 
-        for epoch in range(self.epochs):
-            for batch in dataloader:
-                inputs, targets = batch
-                inputs, targets = inputs.to(self.device), targets.to(self.device)
+        total_loss, num_batches = self.train_epochs(dataloader)
 
-                optimizer.zero_grad()
-                outputs = self.model(inputs)
-                loss = self.criterion(outputs, targets)
-                loss.backward()
-                optimizer.step()
+        return self.get_stats(total_loss, num_batches, labeled_subset, new_indices)
+
