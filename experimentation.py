@@ -19,18 +19,18 @@ if __name__ == "__main__":
     data_sets = ["agnews", "imdb", "jigsaw"]
     common_config_parameters = {
 
-        "save_dir": Path("./results/sep_22"),
+        "save_dir": Path("./results/sep_23"),
 
         # Pool settings
         "initial_pool_size": 200,
         "acquisition_batch_size": 32,
-        "max_seconds": 3600,
-        "total_rounds": 50,
+        "max_seconds": 2400,
+        "total_rounds": 30,
 
         # Plateau checking:
         "min_rounds_before_plateau": 10,
         "plateau_patience": 10,
-        "plateau_f1_threshold": 0.001,
+        "plateau_f1_threshold": 0.0005,
 
         # Model
         "model_name_or_path": "distilbert-base-uncased",
@@ -64,7 +64,17 @@ if __name__ == "__main__":
     switch_epsilon = [0.05, 0.01, 0.005]
     switch_k = [3, 5, 7]
     validation_fraction = [0.05, 0.1, 0.25]
-    uncommon_config_parameters_instances = itertools.product(strategies, data_sets, seeds)
+    uncommon_config_parameters_instances = list(itertools.product(strategies, data_sets, seeds))
+
+    total_configs = 0
+    for strategy, _, _ in uncommon_config_parameters_instances:
+        if strategy == "DeltaF1Strategy":
+            total_configs += len(validation_fraction) * len(switch_k) * len(switch_epsilon)
+        else:
+            total_configs += 1
+    logging.info(f"Total experiment configurations to run: {total_configs}")
+
+    configs_done = 0
 
     for strategy, data_set, seed in uncommon_config_parameters_instances:
         strategy_kwargs_instances = [{'validation_fraction': v, 'epsilon': e, 'k': k}
@@ -72,6 +82,11 @@ if __name__ == "__main__":
             if strategy == "DeltaF1Strategy" else [{}]
         for strat_kwargs in strategy_kwargs_instances:
             experiment_name = f"{strategy}_{'_'.join([str(v).replace('.', '') for v in strat_kwargs.values()])}_{data_set}_{seed}"
+            experiment_path = common_config_parameters["save_dir"] / experiment_name
+            if experiment_path.exists():
+                logging.info(f"Skipping existing experiment: {experiment_name}")
+                configs_done += 1
+                continue
             config_parameters = common_config_parameters.copy()
             config_parameters.update({"experiment_name": experiment_name,
                                       "data": data_set,
@@ -81,7 +96,8 @@ if __name__ == "__main__":
                                       "strategy_kwargs": strat_kwargs,
                                       "sampler_kwargs": {"random_subset_size": 1000, "seed": seed}
                                       })
-
+            logging.info(f"Running experiment ({configs_done + 1}/{total_configs}): {experiment_name}")
+            logging.info(f"Configs left: {total_configs - configs_done - 1}")
             experiment_config = ExperimentConfig(**config_parameters)
             al = ActiveLearning(experiment_config)
             final_metrics = al.run_full_pipeline()
@@ -92,3 +108,5 @@ if __name__ == "__main__":
                 final_metrics['loss']
             )
             al.save_experiment()
+            configs_done += 1
+    logging.info("Experimentation Complete")
