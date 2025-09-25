@@ -5,7 +5,7 @@ import random
 import torch
 import numpy as np
 import time
-from sklearn.metrics import f1_score, accuracy_score
+from sklearn.metrics import f1_score, accuracy_score, confusion_matrix
 from torch.utils.data import DataLoader, Subset
 
 
@@ -207,3 +207,50 @@ def approximate_evaluate_variance(
         logging.info(f"  {metric}: {mean_val:.4f} ± {std_val:.4f}")
 
     return results, variance_stats
+
+
+
+def compute_confusion_matrix(
+        model: torch.nn.Module,
+        dataset: torch.utils.data.Dataset,
+        batch_size: int,
+        device: str = "cuda",
+        normalize: bool = False,
+        class_names: Optional[List[str]] = None
+) -> np.ndarray:
+    """
+    Compute and optionally plot the confusion matrix for a model.
+
+    Args:
+        model (torch.nn.Module): Trained model.
+        dataset (torch.utils.data.Dataset): Dataset to evaluate on.
+        batch_size (int): Batch size for DataLoader.
+        device (str): Device for evaluation.
+        normalize (bool): Whether to normalize counts per class.
+        class_names (Optional[List[str]]): List of class names for plotting.
+
+    Returns:
+        np.ndarray: Confusion matrix (optionally normalized).
+    """
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+
+    all_preds, all_labels = [], []
+    model.eval()
+    with torch.no_grad():
+        for inputs, targets in loader:
+            inputs = {key: tensor.to(device) for key, tensor in inputs.items()}
+            targets = targets.to(device)
+
+            outputs = model(**inputs)
+            logits = outputs["logits"]
+            preds = torch.argmax(logits, dim=1)
+
+            all_preds.append(preds.cpu())
+            all_labels.append(targets.cpu())
+
+    all_preds = torch.cat(all_preds).numpy()
+    all_labels = torch.cat(all_labels).numpy()
+
+    cm = confusion_matrix(all_labels, all_preds, normalize="true" if normalize else None).tolist()
+
+    return cm

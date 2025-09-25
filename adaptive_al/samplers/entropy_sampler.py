@@ -28,7 +28,6 @@ class EntropySampler(BaseSampler):
         return all(i in unlabeled for i in suspicious_indices)
 
     def select(self, pool: DataPool, num_samples: int, random_indices_fraction: float = 0) -> List[int]:
-        print(f"Random indices fraction: {random_indices_fraction}")
         self.model.eval()
         self.model.to(self.device)
 

@@ -7,7 +7,6 @@ import time
 
 import numpy as np
 import torch
-from sqlalchemy.sql.functions import current_time
 
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
@@ -25,18 +24,20 @@ import adaptive_al.samplers as samplers
 # Used in data loading eval string
 from .utils.data_loader import load_agnews, load_imdb, load_jigsaw
 
-from .evaluation import evaluate_model
+from .evaluation import evaluate_model, compute_confusion_matrix
 
 
 class ActiveLearning:
     """Manages active learning round by round."""
 
     def __init__(self, cfg: ExperimentConfig):
+        self.final_test_stats = None
         self._no_improve_rounds = 0
         self.last_stats = {"f1_score": 0.0, "loss": float("inf"), "accuracy": 0.0}
         self.cfg = cfg
         self.start_time = 0
         self._initialize()
+        self.confusion_matrix = None
 
     def _initialize(self):
         """Initialize everything for the active learning rounds."""
@@ -49,9 +50,9 @@ class ActiveLearning:
 
         self._initialize_classes()
         self._initialize_round_tracking()
+        self._initialize_timer()
 
     def _initialize_timer(self):
-        self.start_time = time.perf_counter()
         self.start_time = time.perf_counter()
 
     def _initialize_model_and_tokenizer(self):
@@ -137,6 +138,7 @@ class ActiveLearning:
         """
         self.round_stats: List[Dict] = []
         self.final_test_stats: Dict = {}
+
         self.current_round = 0
 
     def _load_data(self):
@@ -266,7 +268,7 @@ class ActiveLearning:
         metrics = evaluate_model(self.model, self.strategy.criterion, self.cfg.batch_size, dataset=self.test_dataset,
                                  device=self.cfg.device)
         self.final_test_stats = metrics
-
+        self.confusion_matrix = compute_confusion_matrix(self.model, self.test_dataset, self.cfg.batch_size)
         logging.info(
             f"Final Test set evaluation: Loss={metrics['loss']}, F1={metrics['f1_score']:.4f}, Acc={metrics['accuracy']:.4f}")
         return metrics
@@ -294,7 +296,8 @@ class ActiveLearning:
             "total_rounds": len(self.round_stats),
             "round_val_stats": self.round_stats,
             "final_pool_stats": self.pool.get_pool_stats(),
-            "final_test_stats": self.final_test_stats
+            "final_test_stats": self.final_test_stats,
+            "confusion_matrix": self.confusion_matrix
         }
 
     def _timedout(self):
