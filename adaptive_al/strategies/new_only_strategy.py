@@ -14,13 +14,14 @@ class NewOnlyStrategy(BaseStrategy):
         """
         Fine-tunes the model for epochs using only the new data given by the oracle.
         """
-        if new_indices:
-            pool.add_labeled_samples(new_indices)
+        if not new_indices:
+            return self.get_stats(0, 0, pool.get_subset([]), [])
 
-        labeled_subset = pool.get_labeled_subset()
-        new_labeled_subset = pool.get_subset(new_indices)
+        pool.add_labeled_samples(new_indices)
 
-        dataloader = DataLoader(new_labeled_subset, batch_size=self.batch_size, shuffle=True)
+        labeled_subset = pool.get_subset(new_indices)
+        dataloader = DataLoader(labeled_subset, batch_size=len(new_indices), shuffle=True)
+
 
         total_loss, num_batches = self.train_epochs(dataloader)
 
