@@ -4,7 +4,7 @@
 ## Overview  
 This repository contains the code and experiments for **HybridAL**, an adaptive active learning framework for text classification.  
 Instead of training with a fixed strategy (retrain or fine-tune) in all active learning rounds, HybridAL dynamically **switches strategies** based on validation performance improvements (ΔF1).  
-
+- **New-only**: forgets past knowledge
 - **Retrain**: robust, prevents bias but costly.  
 - **Fine-tune**: efficient, but risks drift/overfitting.  
 - **HybridAL (proposed)**: start with retrain, switch to fine-tune when ΔF1 stabilizes.  
@@ -31,7 +31,7 @@ HybridAL extends this pipeline by **adaptively switching the training strategy**
 
 ---
 
-## Repository Structure  
+## Repository Structure  (fix this section**************&&&&&&&&&&&***********)
 ```
 
 adaptive_al/
@@ -72,7 +72,7 @@ adaptive_al/
 
 ### Requirements  
 - Python 3.11  
-- GPU recommended (tested on NVIDIA Tesla M60 in Azure VM)  
+- GPU recommended
 - Dependencies are listed in `requirements.txt`  
 
 ### Installation  
@@ -85,82 +85,13 @@ pip install -r requirements.txt
 ---
 
 ## How to Run
-
-The full active learning pipeline is implemented in `adaptive_al_v2/active_learning.py` using two main classes:  
-- **ExperimentConfig** – defines the experiment settings (dataset, strategy, model, training parameters).  
-- **ActiveLearning** – manages the active learning loop (train, sample, evaluate, save results).  
+# TODO:*****************************************************************
 
 ### Example Usage
 
-```python
-import torch
-from pathlib import Path
-from adaptive_al.active_learning import ActiveLearning, ExperimentConfig
 
-# Choose device
-device = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"Using device: {device}")
-
-# Define experiment configuration
-cfg = ExperimentConfig(
-    seed=42,
-    total_rounds=5,
-    experiment_name="dummy_test_pipeline",
-    save_dir=Path("results"),
-
-    # Pool settings
-    initial_pool_size=200,
-    acquisition_batch_size=256,
-
-    # Model
-    model_name_or_path="distilbert-base-uncased",
-    num_labels=4,
-    tokenizer_kwargs={
-        "max_length": 128,
-        "padding": "max_length",
-        "truncation": True,
-        "add_special_tokens": True,
-        "return_tensors": "pt"
-    },
-
-    # Dataset
-    data="agnews",
-
-    # Strategy
-    strategy_class="DeltaF1Strategy",
-    strategy_kwargs={"epsilon": 0.01, "k": 2},
-
-    # Optimizer / Loss / Scheduler
-    optimizer_class="Adam",
-    optimizer_kwargs={"lr": 1e-3, "weight_decay": 1e-4},
-    criterion_class="CrossEntropyLoss",
-    criterion_kwargs={},
-    scheduler_class="StepLR",
-    scheduler_kwargs={"step_size": 10, "gamma": 0.1},
-
-    # Sampler
-    sampler_class="RandomSampler",
-    sampler_kwargs={"seed": 42},
-
-    # Training
-    device=device,
-    epochs=3,
-    batch_size=64
-)
-
-# Initialize active learning pipeline
-al = ActiveLearning(cfg)
-
-# Run full pipeline
-final_metrics = al.run_full_pipeline()
-print(f"Final Test Metrics: F1={final_metrics['f1_score']:.4f}, "
-      f"Accuracy={final_metrics['accuracy']:.4f}, "
-      f"Loss={final_metrics['loss']:.4f}")
-
-# Save experiment results
-al.save_experiment()
 ````
-
+# TODO:*****************************************************
 After running, results (metrics, config, logs) are saved under `./experiments/<experiment_name>/`.
 
 
@@ -174,17 +105,16 @@ After running, results (metrics, config, logs) are saved under `./experiments/<e
 | ------- | ---------------------------- |-------------------|-----------------| ---------- |
 | AG News | Topic classification         | 120k / 7.6k       | 4               | Balanced   |
 | IMDb    | Sentiment analysis           | 25k               | 2               | Balanced   |
-| Jigsaw  | Toxic comment classification | 160k              | 6 (multi-label) | Imbalanced |
+| Jigsaw  | Toxic comment classification | 160k              | 2               | Imbalanced |
 
 Preprocessing and label distributions are analyzed in the `eda_preprocessing/` notebooks.
 
 ---
-
+# TODO: *******************************************************************************************
 ## Reproducibility
 
 * No values are hardcoded in training scripts.
 * Experiments are run with **five random seeds {42, 43, 44, 45, 46}**, and results are averaged.
-* Results, figures, and logs are saved under `experiments/` and `media/`.
 
 
 ---
@@ -216,7 +146,6 @@ If you use this work, please cite:
 
 ---
 
-✨ This repository contains all source code, experiments, and results for HybridAL.
+✨ This repository contains all source code.
 
-```
 
