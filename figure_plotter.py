@@ -1,4 +1,7 @@
 import json
+import os
+import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -8,41 +11,151 @@ dataset_names = {"agnews": "AG News", "imdb": "IMDb", "jigsaw": "Jigsaw"}
 strategy_names = {"NewOnlyStrategy": "New only", "RetrainStrategy": "Retrain", "FineTuneStrategy": "Fine tuning",
                   "DeltaF1Strategy": "HybridAL"}
 
-def plot_f1_vs_time(results_paths: list, save_path: str, cmap:str='tab20b'):
+
+def get_experiments_df(main_results_path: str):
     """
-    Plots test set F1 score vs training time for different experiments.
+    Reads all experiment result files from the specified directory and compiles them into a single DataFrame.
 
     Parameters:
-    - results_paths: List of file paths containing results for each experiment in .json format.
-    - save_path: Path to save the generated plot.
-    - cmap: Colormap to use for different lines in the plot.
+    - main_results_path: Path to the directory containing experiment result files in .json format.
+
+    Returns:
+    - A pandas DataFrame containing all experiments' data.
+    """
+    all_data = []
+    for root, dirs, files in os.walk(main_results_path):
+        for file in files:
+            if file.endswith('.json'):
+                with open(os.path.join(root, file), 'r') as f:
+                    data = json.load(f)
+                    data['folder_name'] = os.path.basename(root)
+                all_data.append(data)
+
+    df = pd.json_normalize(all_data, sep='_')
+
+    cols_to_keep = ['total_rounds', 'round_val_stats', 'cfg_seed', 'cfg_strategy_class', 'cfg_strategy_kwargs_epsilon',
+                    'cfg_strategy_kwargs_k', 'cfg_strategy_kwargs_validation_fraction', 'cfg_data',
+                    'final_pool_stats_labeled_count',
+                    'final_pool_stats_unlabeled_count', 'final_test_stats_loss', 'final_test_stats_f1_score',
+                    'final_test_stats_accuracy', 'confusion_matrix', 'folder_name']
+    df = df[cols_to_keep]
+    df.rename(columns={
+        'cfg_seed': 'seed',
+        'cfg_strategy_class': 'strategy',
+        'cfg_strategy_kwargs_epsilon': 'epsilon',
+        'cfg_strategy_kwargs_k': 'k',
+        'cfg_strategy_kwargs_validation_fraction': 'validation_fraction',
+        'cfg_data': 'dataset',
+        'final_test_stats_f1_score': 'test_f1_score',
+        'final_test_stats_accuracy': 'test_accuracy',
+        'final_test_stats_loss': 'test_loss',
+        'final_pool_stats_labeled_count': 'labeled_count',
+        'final_pool_stats_unlabeled_count': 'unlabeled_count',
+    }, inplace=True)
+    return df
+
+
+def plot_f1_vs_time_avg(
+        experiments_df: pd.DataFrame,
+        hybrid_hyper: dict,
+        dataset: str,
+        save_path: str = None,
+        cmap: str = "tab20b",
+        n_grid: int = 250,
+        show_individual: bool = False
+):
+    """
+    Plots Macro-F1 vs cumulative training time, averaged across seeds per strategy, with interpolation onto a common
+    time grid and a variability band.
+
+    Parameters:
+    - experiments_df: DataFrame containing experiment results, in the format of get_experiments_df().
+    - hybrid_hyper: Dictionary with hyperparameters for the best DeltaF1Strategy
+    (keys: 'epsilon', 'k', 'validation_fraction').
+    - dataset: The dataset to plot its strategies results ('agnews', 'imdb', 'jigsaw').
+    - save_path: Optional path to save the plot image. If None, the plot is just shown.
+    - cmap: Colormap name for strategies.
+    - n_grid: Number of points in the common time grid for interpolation.
+    - show_individual: Whether to plot faint individual seed F1 curves in the background.
     """
 
     plt.figure(figsize=(6, 4))
+    color_map = plt.get_cmap(cmap)
+    strategies = list(strategy_names.keys())
 
-    for i, path in enumerate(results_paths):
-        with open(path, 'r') as f:
-            data = json.load(f)
-        strat = data['cfg']['strategy_class']
-        dataset = data['cfg']['data']
+    for s_i, strategy in enumerate(strategies):
+        # Gather the time points and F1 scores for each seed
+        seed_curves = []
+        for seed in sorted(experiments_df['seed'].unique()):
+            if strategy == "DeltaF1Strategy":
+                mask = (
+                        (experiments_df['dataset'] == dataset) &
+                        (experiments_df['strategy'] == strategy) &
+                        (experiments_df['epsilon'] == hybrid_hyper['epsilon']) &
+                        (experiments_df['k'] == hybrid_hyper['k']) &
+                        (experiments_df['validation_fraction'] == hybrid_hyper['validation_fraction']) &
+                        (experiments_df['seed'] == seed)
+                )
+            else:
+                mask = (
+                        (experiments_df['dataset'] == dataset) &
+                        (experiments_df['strategy'] == strategy) &
+                        (experiments_df['seed'] == seed)
+                )
 
-        round_val_stats = data['round_val_stats']
+            row = experiments_df.loc[mask]
 
-        overall_time = 0
-        times, f1_scores = [], []
-        for round in round_val_stats:
-            overall_time += round['training_time']
-            times.append(overall_time)
-            f1_scores.append(round['f1_score'])
+            # Build cumulative time curve
+            round_val_stats = row['round_val_stats'].values[0]
+            times, f1s = [], []
+            t = 0.0
+            for r in round_val_stats:
+                t += float(r['training_time'])
+                times.append(t)
+                f1s.append(float(r['f1_score']))
 
-        label = f"{dataset_names[dataset]}/{strategy_names[strat]}"
-        color = plt.get_cmap(cmap)(i / 20)
+            if len(times) >= 2:
+                seed_curves.append((times, f1s))
 
-        plt.plot(times, f1_scores, marker='o', label=label, color=color)
+        if len(seed_curves) == 0:
+            continue
+
+        # Set the common time grid to be between 0 and the minimum max time across seeds
+        max_times = [curve[0][-1] for curve in seed_curves]
+        t_max_common = np.min(max_times)
+        if t_max_common <= 0:
+            continue
+
+        grid = np.linspace(0.0, t_max_common, n_grid)
+
+        # Interpolate each seed's F1 scores onto the common time grid
+        interp_f1s = []
+        for times, f1s in seed_curves:
+            f_on_grid = np.interp(grid, times, f1s)
+            interp_f1s.append(f_on_grid)
+
+            if show_individual:
+                plt.plot(times, f1s, color=color_map(s_i / len(color_map.colors)), alpha=0.25, lw=1)
+
+        interp_f1s = np.vstack(interp_f1s)
+        mean_f1 = interp_f1s.mean(axis=0)
+
+        # Calculate standard deviation for the band
+        std = interp_f1s.std(axis=0)
+        lower, upper = mean_f1 - std, mean_f1 + std
+
+        # Plot mean and band per strategy
+        label = strategy_names[strategy]
+        color = color_map(s_i / len(color_map.colors))
+        plt.plot(grid, mean_f1, label=label, color=color, lw=2.0)
+        plt.fill_between(grid, lower, upper, color=color, alpha=0.15, linewidth=0)
 
     plt.xlabel('Training Time (seconds)')
     plt.ylabel('Test Set Macro-F1 Score')
-    plt.title('Test Set Macro-F1 Score vs Training Time')
-    plt.legend()
-    plt.savefig(save_path)
-    plt.close()
+    plt.title(f'Test Set Macro-F1 vs Training Time (mean across seeds) for {dataset_names[dataset]}')
+    plt.grid(True, alpha=0.25)
+    plt.legend(ncol=2, fontsize=8)
+    plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path, dpi=200)
+    plt.show()
