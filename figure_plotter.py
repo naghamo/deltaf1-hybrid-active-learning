@@ -390,7 +390,7 @@ def plot_f1_vs_round_switch(experiments_df: pd.DataFrame, best_hybrid_hyper: dic
     Parameters:
     - experiments_df: DataFrame containing the experiments' data.
     - best_hybrid_hyper: Dictionary containing the best hyperparameters for HybridAL.
-    - save_dir_path: Directory path to save the generated plots. If None, plots are
+    - save_dir_path: Directory path to save the generated plots. If None, plots are just shown.
     """
 
     for dataset in dataset_names.keys():
@@ -422,7 +422,7 @@ def plot_f1_vs_round_switch(experiments_df: pd.DataFrame, best_hybrid_hyper: dic
 
         plt.xlabel('Round Number')
         plt.ylabel('Test Set Macro-F1 Score')
-        plt.title(f'Test Set Macro-F1 Score vs Round Number - {dataset_names[
+        plt.title(f'Test Set Macro-F1 Score vs Round Number (HybridAL) - {dataset_names[
             dataset]}')
         plt.legend(fontsize='x-small')
         if save_dir_path is not None:
