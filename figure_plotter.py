@@ -8,6 +8,9 @@ import seaborn as sns
 sns.set_theme(style="whitegrid")
 
 dataset_names = {"agnews": "AG News", "imdb": "IMDb", "jigsaw": "Jigsaw"}
+dataset_labels = {"agnews": ["World", "Sports", "Business", "Sci/Tech"],
+                  "imdb": ["Negative", "Positive"],
+                  "jigsaw": ["Clean", "Toxic"]}
 strategy_names = {"NewOnlyStrategy": "New only", "RetrainStrategy": "Retrain", "FineTuneStrategy": "Fine tuning",
                   "DeltaF1Strategy": "HybridAL"}
 dpi = 250  # DPI for saving figures
@@ -262,10 +265,6 @@ def plot_hybrid_hyper_variations(experiments_df: pd.DataFrame, best_hybrid_hyper
         plt.show()
 
 
-import matplotlib.pyplot as plt
-import pandas as pd
-
-
 def plot_test_f1_bar_chart(experiments_df: pd.DataFrame, best_hybrid_hyper: dict, save_path: str = None):
     """
     Plots a bar chart comparing the mean test set macro-F1 scores of different strategies, averaged across all datasets and seeds.
@@ -326,3 +325,56 @@ def plot_test_f1_bar_chart(experiments_df: pd.DataFrame, best_hybrid_hyper: dict
     if save_path:
         plt.savefig(save_path, dpi=dpi)
     plt.show()
+
+
+def plot_confusion_heatmaps_hybrid(experiments_df: pd.DataFrame, hybrid_hyper: dict, save_dir_path: str = None):
+    """
+    Plots 3 average normalized confusion matrix heatmaps for the hybrid strategy, one per dataset.
+
+    Parameters:
+    - experiments_df: DataFrame containing experiments results.
+    - hybrid_hyper: Dictionary containing the hyperparameters for the hybrid strategy.
+    - save_dir_path: Directory path to save the generated plots.
+    """
+
+    for dataset in experiments_df['dataset'].unique():
+        relevant_hybrid = filter_experiments_df(
+            experiments_df,
+            strategy='DeltaF1Strategy',
+            dataset=dataset,
+            epsilon=hybrid_hyper['epsilon'],
+            k=hybrid_hyper['k'],
+            validation_fraction=hybrid_hyper['validation_fraction']
+        )
+
+        # Sum the confusion matrices
+        num_labels = len(relevant_hybrid['confusion_matrix'].values[0])
+        sum_cm = np.zeros((num_labels, num_labels))
+        for cm in relevant_hybrid['confusion_matrix']:
+            sum_cm += np.array(cm)
+
+        # Normalize the summed confusion matrix
+        avg_cm = sum_cm / sum_cm.sum(axis=1, keepdims=True)
+
+        # Round and renormalize again to avoid floating point issues
+        avg_cm = np.round(avg_cm, 2)
+        avg_cm = avg_cm / avg_cm.sum(axis=1, keepdims=True)
+
+        fig, ax = plt.subplots(figsize=figsize)
+        sns.heatmap(
+            avg_cm, annot=True, fmt=".2f", cmap="Blues",
+            cbar=True, ax=ax,
+            cbar_kws={"shrink": 0.8, "label": "Proportion"}
+        )
+
+        # Rename the ticks to be the label meanings
+        ax.set_xticklabels(dataset_labels[dataset], rotation=45, ha='right')
+        ax.set_yticklabels(dataset_labels[dataset], rotation=0)
+
+        plt.title(f'Normalized Global Confusion Matrix (HybridAL) - {dataset_names[dataset]}')
+        plt.xlabel('Predicted Label')
+        plt.ylabel('True Label')
+        plt.tight_layout()
+        if save_dir_path:
+            plt.savefig(os.path.join(save_dir_path, f'cm_hybrid_{dataset}.png'), dpi=dpi)
+        plt.show()
