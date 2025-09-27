@@ -12,6 +12,29 @@ strategy_names = {"NewOnlyStrategy": "New only", "RetrainStrategy": "Retrain", "
                   "DeltaF1Strategy": "HybridAL"}
 
 
+def filter_experiments_df(df: pd.DataFrame, dataset: str, strategy: str, **filter_kwargs):
+    """
+    Filters the experiments DataFrame for a specific dataset and strategy. If the strategy is 'DeltaF1Strategy',
+    it also filters based on provided hyperparameters.
+
+    Parameters:
+    - df: The DataFrame containing experiment results.
+    - dataset: The dataset to filter by ('agnews', 'imdb', 'jigsaw').
+    - strategy: The strategy to filter by ('NewOnlyStrategy', 'RetrainStrategy', 'FineTuneStrategy', 'DeltaF1Strategy').
+    - filter_kwargs: Additional keyword arguments for filtering, such as 'seed' or hyperparameters for 'DeltaF1Strategy'.
+
+    Returns:
+    - A filtered pandas DataFrame.
+    """
+    mask = (df['dataset'] == dataset) & (df['strategy'] == strategy)
+    if filter_kwargs:
+        for key, value in filter_kwargs.items():
+            if key in df.columns and value:
+                mask &= (df[key] == value)
+
+    return df.loc[mask]
+
+
 def get_experiments_df(main_results_path: str):
     """
     Reads all experiment result files from the specified directory and compiles them into a single DataFrame.
@@ -30,6 +53,7 @@ def get_experiments_df(main_results_path: str):
                     data = json.load(f)
                     data['folder_name'] = os.path.basename(root)
                 all_data.append(data)
+                break
 
     df = pd.json_normalize(all_data, sep='_')
 
@@ -53,6 +77,41 @@ def get_experiments_df(main_results_path: str):
         'final_pool_stats_unlabeled_count': 'unlabeled_count',
     }, inplace=True)
     return df
+
+
+def get_summary_table(experiments_df: pd.DataFrame, hybrid_hyper: dict):
+    summary_data = []
+
+    for dataset in experiments_df['dataset'].unique():
+        for strategy in experiments_df['strategy'].unique():
+            is_delta_f1 = (strategy == 'DeltaF1Strategy')
+
+            filtered_df = filter_experiments_df(experiments_df, dataset=dataset, strategy=strategy,
+                                                epsilon=hybrid_hyper['epsilon'] if is_delta_f1 else None,
+                                                k=hybrid_hyper['k'] if is_delta_f1 else None,
+                                                validation_fraction=hybrid_hyper[
+                                                    'validation_fraction'] if is_delta_f1 else None)
+
+            training_times = []
+            for _, row in filtered_df.iterrows():
+                round_val_stats = row['round_val_stats']
+                total_time = sum(round['training_time'] for round in round_val_stats)
+                training_times.append(total_time)
+
+            avg_f1 = filtered_df['test_f1_score'].mean()
+            avg_time = np.mean(training_times)
+            avg_total_rounds = filtered_df['total_rounds'].mean()
+
+            summary_data.append({
+                'Dataset': dataset_names.get(dataset, dataset),
+                'Strategy': strategy_names.get(strategy, strategy),
+                'Avg Test Set Macro-F1 Score': f"{avg_f1:.4f}",
+                'Avg Training Time (sec)': f"{avg_time:.2f}",
+                'Avg Total Rounds': f"{avg_total_rounds:.2f}"
+            })
+
+    summary_df = pd.DataFrame(summary_data)
+    return summary_df
 
 
 def plot_f1_vs_time_avg(
@@ -87,23 +146,16 @@ def plot_f1_vs_time_avg(
         # Gather the time points and F1 scores for each seed
         seed_curves = []
         for seed in sorted(experiments_df['seed'].unique()):
-            if strategy == "DeltaF1Strategy":
-                mask = (
-                        (experiments_df['dataset'] == dataset) &
-                        (experiments_df['strategy'] == strategy) &
-                        (experiments_df['epsilon'] == hybrid_hyper['epsilon']) &
-                        (experiments_df['k'] == hybrid_hyper['k']) &
-                        (experiments_df['validation_fraction'] == hybrid_hyper['validation_fraction']) &
-                        (experiments_df['seed'] == seed)
-                )
-            else:
-                mask = (
-                        (experiments_df['dataset'] == dataset) &
-                        (experiments_df['strategy'] == strategy) &
-                        (experiments_df['seed'] == seed)
-                )
+            is_delta_f1 = (strategy == 'DeltaF1Strategy')
 
-            row = experiments_df.loc[mask]
+            row = filter_experiments_df(
+                experiments_df, dataset=dataset,
+                strategy=strategy,
+                seed=seed,
+                epsilon=hybrid_hyper.get['epsilon'] if is_delta_f1 else None,
+                k=hybrid_hyper['k'] if is_delta_f1 else None,
+                validation_fraction=hybrid_hyper['validation_fraction'] if is_delta_f1 else None
+            )
 
             # Build cumulative time curve
             round_val_stats = row['round_val_stats'].values[0]
