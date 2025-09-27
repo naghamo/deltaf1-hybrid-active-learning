@@ -211,3 +211,50 @@ def plot_f1_vs_time_avg(
     if save_path:
         plt.savefig(save_path, dpi=200)
     plt.show()
+
+
+def plot_hybrid_hyper_variations(experiments_df: pd.DataFrame, best_hybrid_hyper: dict, save_dir_path: str = None, cmap: str='tab10'):
+    """
+    Plots 3 figures, where in each figure two of the three hybridAL hyperparameters are fixed to the best values,   and the third is varied.
+    The figures show the mean test set F1 score vs the varied hyperparameter, with one line per dataset.
+
+    Parameters:
+    - experiments_df: DataFrame containing the experimental results.
+    - best_hybrid_hyper: Dictionary containing the best hyperparameters for hybridAL.
+    - save_dir_path: DIRECTORY path to save the generated plots. If None, plots are just shown.
+    """
+    hyperparams_names = {"epsilon": r"$\varepsilon$",
+                          "k": r"$k$",
+                          "validation_fraction": "validation_fraction"}
+
+    for param in best_hybrid_hyper.keys():
+        plt.figure(figsize=(6, 4))
+        color_map = plt.get_cmap(cmap)
+
+        for i, dataset in enumerate(experiments_df['dataset'].unique()):
+            subset = experiments_df[
+                (experiments_df['strategy'] == 'DeltaF1Strategy') &
+                (experiments_df['dataset'] == dataset)
+            ]
+
+            for other_param, value in best_hybrid_hyper.items():
+                if other_param != param:
+                    subset = subset[subset[other_param] == value]
+
+            means = subset.groupby(param)['test_f1_score'].mean()
+            plt.plot(means.index, means.values, marker='o', label=dataset_names.get(dataset, dataset), color=color_map(i))
+
+        plt.xlabel(hyperparams_names[param])
+        plt.ylabel('Mean Test Set Macro-F1 Score')
+
+        title_postfix = ', '.join([f"{hyperparams_names[k]}={v}" for k, v in best_hybrid_hyper.items() if k != param])
+        plt.title(f'Mean Test Set Macro-F1 Score vs {hyperparams_names[param]} ({title_postfix})')
+
+        plt.legend(frameon=False)
+        plt.grid(alpha=0.25)
+        plt.tight_layout()
+
+        if save_dir_path:
+            plt.savefig(os.path.join(save_dir_path, f'hybrid_hyper_variation_{param}.png'))
+
+        plt.show()
