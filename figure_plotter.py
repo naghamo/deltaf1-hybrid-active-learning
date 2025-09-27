@@ -10,23 +10,23 @@ sns.set_theme(style="whitegrid")
 dataset_names = {"agnews": "AG News", "imdb": "IMDb", "jigsaw": "Jigsaw"}
 strategy_names = {"NewOnlyStrategy": "New only", "RetrainStrategy": "Retrain", "FineTuneStrategy": "Fine tuning",
                   "DeltaF1Strategy": "HybridAL"}
+dpi = 250  # DPI for saving figures
+figsize = (6, 4)  # Default figure size
 
 
-def filter_experiments_df(df: pd.DataFrame, dataset: str, strategy: str, **filter_kwargs):
+def filter_experiments_df(df: pd.DataFrame, **filter_kwargs):
     """
     Filters the experiments DataFrame for a specific dataset and strategy. If the strategy is 'DeltaF1Strategy',
     it also filters based on provided hyperparameters.
 
     Parameters:
     - df: The DataFrame containing experiment results.
-    - dataset: The dataset to filter by ('agnews', 'imdb', 'jigsaw').
-    - strategy: The strategy to filter by ('NewOnlyStrategy', 'RetrainStrategy', 'FineTuneStrategy', 'DeltaF1Strategy').
-    - filter_kwargs: Additional keyword arguments for filtering, such as 'seed' or hyperparameters for 'DeltaF1Strategy'.
+    - filter_kwargs: keyword arguments for filtering, such as 'dataset', 'strategy', 'seed' or hyperparameters for 'DeltaF1Strategy'.
 
     Returns:
     - A filtered pandas DataFrame.
     """
-    mask = (df['dataset'] == dataset) & (df['strategy'] == strategy)
+    mask = pd.Series(True, index=df.index)
     if filter_kwargs:
         for key, value in filter_kwargs.items():
             if key in df.columns and value:
@@ -138,7 +138,7 @@ def plot_f1_vs_time_avg(
     - show_individual: Whether to plot faint individual seed F1 curves in the background.
     """
 
-    plt.figure(figsize=(6, 4))
+    plt.figure(figsize=figsize)
     color_map = plt.get_cmap(cmap)
     strategies = list(strategy_names.keys())
 
@@ -209,11 +209,12 @@ def plot_f1_vs_time_avg(
     plt.legend(ncol=2, fontsize=8)
     plt.tight_layout()
     if save_path:
-        plt.savefig(save_path, dpi=200)
+        plt.savefig(save_path, dpi=dpi)
     plt.show()
 
 
-def plot_hybrid_hyper_variations(experiments_df: pd.DataFrame, best_hybrid_hyper: dict, save_dir_path: str = None, cmap: str='tab10'):
+def plot_hybrid_hyper_variations(experiments_df: pd.DataFrame, best_hybrid_hyper: dict, save_dir_path: str = None,
+                                 cmap: str = 'tab10'):
     """
     Plots 3 figures, where in each figure two of the three hybridAL hyperparameters are fixed to the best values,   and the third is varied.
     The figures show the mean test set F1 score vs the varied hyperparameter, with one line per dataset.
@@ -224,25 +225,26 @@ def plot_hybrid_hyper_variations(experiments_df: pd.DataFrame, best_hybrid_hyper
     - save_dir_path: DIRECTORY path to save the generated plots. If None, plots are just shown.
     """
     hyperparams_names = {"epsilon": r"$\varepsilon$",
-                          "k": r"$k$",
-                          "validation_fraction": "validation_fraction"}
+                         "k": r"$k$",
+                         "validation_fraction": "validation_fraction"}
 
     for param in best_hybrid_hyper.keys():
-        plt.figure(figsize=(6, 4))
+        plt.figure(figsize=figsize)
         color_map = plt.get_cmap(cmap)
 
         for i, dataset in enumerate(experiments_df['dataset'].unique()):
             subset = experiments_df[
                 (experiments_df['strategy'] == 'DeltaF1Strategy') &
                 (experiments_df['dataset'] == dataset)
-            ]
+                ]
 
             for other_param, value in best_hybrid_hyper.items():
                 if other_param != param:
                     subset = subset[subset[other_param] == value]
 
             means = subset.groupby(param)['test_f1_score'].mean()
-            plt.plot(means.index, means.values, marker='o', label=dataset_names.get(dataset, dataset), color=color_map(i))
+            plt.plot(means.index, means.values, marker='o', label=dataset_names.get(dataset, dataset),
+                     color=color_map(i))
 
         plt.xlabel(hyperparams_names[param])
         plt.ylabel('Mean Test Set Macro-F1 Score')
@@ -255,6 +257,72 @@ def plot_hybrid_hyper_variations(experiments_df: pd.DataFrame, best_hybrid_hyper
         plt.tight_layout()
 
         if save_dir_path:
-            plt.savefig(os.path.join(save_dir_path, f'hybrid_hyper_variation_{param}.png'))
+            plt.savefig(os.path.join(save_dir_path, f'hybrid_hyper_variation_{param}.png'), dpi=dpi)
 
         plt.show()
+
+
+import matplotlib.pyplot as plt
+import pandas as pd
+
+
+def plot_test_f1_bar_chart(experiments_df: pd.DataFrame, best_hybrid_hyper: dict, save_path: str = None):
+    """
+    Plots a bar chart comparing the mean test set macro-F1 scores of different strategies, averaged across all datasets and seeds.
+
+    Parameters:
+    - experiments_df: DataFrame containing experiment results.
+    - best_hybrid_hyper: Dictionary containing the best hyperparameters for the HybridAL strategy
+    - save_path: Optional path to save the generated plot.
+    """
+    results = []
+
+    plt.figure(figsize=figsize)
+
+    # Fixed color mapping to match the f1 vs time plot
+    cmap = plt.get_cmap("Set2")
+    strategy_colors = {
+        "New only": cmap(0),
+        "Retrain": cmap(1),
+        "Fine tuning": cmap(2),
+        "HybridAL": cmap(3),
+    }
+
+    for strategy in experiments_df['strategy'].unique():
+        info = filter_experiments_df(experiments_df, strategy=strategy,
+                                     **best_hybrid_hyper) if strategy == 'DeltaF1Strategy' else filter_experiments_df(
+            experiments_df, strategy=strategy)
+
+        mean_f1 = info['test_f1_score'].mean()
+        std_f1 = info['test_f1_score'].std()
+        name = strategy_names[strategy]
+
+        results.append((name, mean_f1, std_f1))
+
+    # Sort by mean F1 score
+    results.sort(key=lambda x: x[1])  # ascending order
+
+    bars = []
+    # Plot Sorted bars
+    for name, mean_f1, std_f1 in results:
+        color = strategy_colors[name]
+        bar = plt.bar(name, mean_f1, yerr=std_f1, capsize=5, color=color)
+        bars.append((bar, mean_f1, std_f1))
+
+    # Print bar values atop bars
+    for bar, mean, std in bars:
+        for rect in bar:
+            plt.text(
+                rect.get_x() + rect.get_width() / 2,
+                rect.get_height() + std + 0.02,
+                f"{mean:.3f}",
+                ha="center", va="bottom", fontsize=9
+            )
+
+    plt.ylabel('Mean Test Set Macro-F1 Score')
+    plt.title('Comparison of Strategies on Mean Test Set Macro-F1 Score')
+    plt.ylim(0, 1.05)
+    plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path, dpi=dpi)
+    plt.show()
