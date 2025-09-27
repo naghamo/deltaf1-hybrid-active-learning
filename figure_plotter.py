@@ -398,6 +398,7 @@ def plot_f1_vs_round_switch(experiments_df: pd.DataFrame, best_hybrid_hyper: dic
         cmap = ListedColormap(['#9195F6', '#FB88B4', '#79d955'])
 
         color_i = 0
+        total_rounds = []
         for j in experiments_df['seed'].unique():
             info = filter_experiments_df(
                 experiments_df,
@@ -415,6 +416,7 @@ def plot_f1_vs_round_switch(experiments_df: pd.DataFrame, best_hybrid_hyper: dic
             color = cmap.colors[color_i]
             color_i += 1
             switch_round = switch_rounds[dataset][j]
+            total_rounds.append(info['total_rounds'].values[0])
 
             plt.plot(range(1, len(f1_scores) + 1), f1_scores, label=label, color=color)
             plt.scatter(switch_round, f1_scores[switch_round - 1], color=color, s=50, edgecolor='black', zorder=5,
@@ -422,9 +424,11 @@ def plot_f1_vs_round_switch(experiments_df: pd.DataFrame, best_hybrid_hyper: dic
 
         plt.xlabel('Round Number')
         plt.ylabel('Test Set Macro-F1 Score')
+        plt.xticks(range(1, max(total_rounds) + 1), fontsize=10)
         plt.title(f'Test Set Macro-F1 Score vs Round Number (HybridAL) - {dataset_names[
             dataset]}')
         plt.legend(fontsize='x-small')
+        plt.grid(alpha=0.4)
         if save_dir_path is not None:
             plt.savefig(os.path.join(save_dir_path, f'f1_vs_round_hybrid_{dataset}.png'), dpi=dpi)
         plt.show()
