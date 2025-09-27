@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
 import seaborn as sns
 
 sns.set_theme(style="whitegrid")
@@ -11,6 +12,8 @@ dataset_names = {"agnews": "AG News", "imdb": "IMDb", "jigsaw": "Jigsaw"}
 dataset_labels = {"agnews": ["World", "Sports", "Business", "Sci/Tech"],
                   "imdb": ["Negative", "Positive"],
                   "jigsaw": ["Clean", "Toxic"]}
+switch_rounds = {"agnews": {42: 10, 43: 10, 44: 10}, "imdb": {42: 12, 43: 9, 44: 11}, "jigsaw": {42: 19, 43: 11,
+                                                                                                 44: 6}}  # The rounds on which the switch was made in the best hybrid configuration
 strategy_names = {"NewOnlyStrategy": "New only", "RetrainStrategy": "Retrain", "FineTuneStrategy": "Fine tuning",
                   "DeltaF1Strategy": "HybridAL"}
 dpi = 250  # DPI for saving figures
@@ -377,4 +380,51 @@ def plot_confusion_heatmaps_hybrid(experiments_df: pd.DataFrame, hybrid_hyper: d
         plt.tight_layout()
         if save_dir_path:
             plt.savefig(os.path.join(save_dir_path, f'cm_hybrid_{dataset}.png'), dpi=dpi)
+        plt.show()
+
+
+def plot_f1_vs_round_switch(experiments_df: pd.DataFrame, best_hybrid_hyper: dict, save_dir_path: str = None):
+    """
+    Plots 3 plots of test set F1 score vs round number for HybridAL. There's a plot per dataset, and in each plot there is a line per seed. The round that the switch happened is marked.
+
+    Parameters:
+    - experiments_df: DataFrame containing the experiments' data.
+    - best_hybrid_hyper: Dictionary containing the best hyperparameters for HybridAL.
+    - save_dir_path: Directory path to save the generated plots. If None, plots are
+    """
+
+    for dataset in dataset_names.keys():
+        plt.figure(figsize=figsize)
+        cmap = ListedColormap(['#9195F6', '#FB88B4', '#79d955'])
+
+        color_i = 0
+        for j in experiments_df['seed'].unique():
+            info = filter_experiments_df(
+                experiments_df,
+                dataset=dataset,
+                strategy='DeltaF1Strategy',
+                epsilon=best_hybrid_hyper['epsilon'],
+                k=best_hybrid_hyper['k'],
+                validation_fraction=best_hybrid_hyper['validation_fraction'],
+                seed=j
+            )
+
+            f1_scores = [round['f1_score'] for round in info['round_val_stats'].values[0]]
+
+            label = f"Seed {j}"
+            color = cmap.colors[color_i]
+            color_i += 1
+            switch_round = switch_rounds[dataset][j]
+
+            plt.plot(range(1, len(f1_scores) + 1), f1_scores, label=label, color=color)
+            plt.scatter(switch_round, f1_scores[switch_round - 1], color=color, s=50, edgecolor='black', zorder=5,
+                        label=f"Switch Round (Seed {j})")
+
+        plt.xlabel('Round Number')
+        plt.ylabel('Test Set Macro-F1 Score')
+        plt.title(f'Test Set Macro-F1 Score vs Round Number - {dataset_names[
+            dataset]}')
+        plt.legend(fontsize='x-small')
+        if save_dir_path is not None:
+            plt.savefig(os.path.join(save_dir_path, f'f1_vs_round_hybrid_{dataset}.png'), dpi=dpi)
         plt.show()
