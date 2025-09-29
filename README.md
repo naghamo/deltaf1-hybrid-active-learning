@@ -31,39 +31,48 @@ HybridAL extends this pipeline by **adaptively switching the training strategy**
 
 ---
 
-## Repository Structure  (fix this section**************&&&&&&&&&&&***********)
+## Repository Structure
 ```
-
-adaptive_al/
+deltaf1-hybrid-active-learning/
 │
-├── strategies/          # Training strategies (retrain, fine-tune, new-only, deltaf1)
-│   ├── base\_strategy.py
-│   ├── retrain\_strategy.py
-│   ├── fine\_tuning\_strategy.py
-│   ├── new\_only\_strategy.py
-│   ├── deltaf1\_strategy.py
+├── adaptive_al/                        # Core implementation of active learning framework
+│   ├── strategies/                     # Training strategies
+│   │   ├── base_strategy.py
+│   │   ├── retrain_strategy.py
+│   │   ├── fine_tuning_strategy.py
+│   │   ├── new_only_strategy.py
+│   │   └── deltaf1_strategy.py
+│   │
+│   ├── samplers/                       # Querying / sampling methods
+│   │   ├── base_sampler.py
+│   │   ├── entropy_sampler.py
+│   │   ├── entropy_on_random_subset_sampler.py
+│   │   └── random_sampler.py
+│   │
+│   └── utils/                          # Utility modules
+│       ├── active_learning.py
+│       ├── config.py
+│       ├── evaluation.py
+│       └── pool.py
 │
-├── samplers/            # Active learning samplers (uncertainty, entropy, etc.)
+├── data/                               # Datasets (AG News, IMDb, Jigsaw, etc.)
 │
-├── utils/               # Pipeline utilities
-│   ├── active\_learning.py
-│   ├── config.py
-│   ├── evaluation.py
-│   ├── pool.py
+├── eda_preprocessing/                  # Exploratory data analysis notebooks
+│   ├── 01_agnews_eda.ipynb
+│   ├── 02_imdb_eda.ipynb
+│   ├── 03_jigsaw_eda.ipynb
+│   └── all_datasets_eda.ipynb
 │
-├── data/                # Datasets (AG News, IMDb, Jigsaw)
+├── experiments/                        # Experiment results & configs
 │
-├── eda\_preprocessing/   # EDA and preprocessing notebooks
-│   ├── 01\_agnews\_eda.ipynb
-│   ├── 02\_imdb\_eda.ipynb
-│   ├── 03\_jigsaw\_eda.ipynb
+├── media/                              # Figures, plots, and diagrams
 │
-├── experiments/         # Experiment scripts and results
-├── media/               # Figures, plots, diagrams
-├── run\_example.ipynb    # Example run of the pipeline
-├── requirements.txt     # Python dependencies
-└── README.md
-
+├── run_example.ipynb                   # Example notebook to run a demo pipeline
+├── experimentation.py                  # Script to run experiments with optuna
+├── figure_plotter.py                   # Helper script for plotting results
+├── requirements.txt                    # Python dependencies
+├── result_example.json                 # Example output format
+└── README.md                           # Project documentation
 ````
 
 ---
