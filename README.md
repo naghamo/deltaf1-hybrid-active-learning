@@ -93,38 +93,50 @@ pip install -r requirements.txt
 
 ---
 
-## How to Run
-# TODO:*****************************************************************
+## Running the Code
 
-### Example Usage
+### Option A — Notebook workflow (`run_example.ipynb`)
 
+1. Launch Jupyter:  
+   jupyter lab  
+2. Open `run_example.ipynb` and run all cells.  
+   This notebook demonstrates an adaptive_al module usage with the included datasets.  
 
-````
-# TODO:*****************************************************
-After running, results (metrics, config, logs) are saved under `./experiments/<experiment_name>/`.
+### Option B — Optuna workflow (`experimentation.py`)
 
+1. `experimentation.py` runs an **Optuna study** to tune active learning hyperparameters.  
+2. Edit the configuration block inside the script (dataset, sampler, strategy, budgets, seeds, number of trials).  
+3. Run it directly:  
+   python3 experimentation.py  
+4. Optuna will log trial metrics and pick the best hyperparameters.  
 
+### Outputs and Visualization
 
+- Results are saved under `./experiments/<experiment_subdir>/`  
+- Includes metrics (per-round F1 / ΔF1), the config used, and logs  
+- Use `figure_plotter.py` to turn results into plots (examples are in `media/`)  
 
 ---
 
 ## Datasets
 
-| Dataset | Task Type                    | Size (Train/Test) | #Classes        | Notes      |
-| ------- | ---------------------------- |-------------------|-----------------| ---------- |
-| AG News | Topic classification         | 120k / 7.6k       | 4               | Balanced   |
-| IMDb    | Sentiment analysis           | 25k               | 2               | Balanced   |
-| Jigsaw  | Toxic comment classification | 160k              | 2               | Imbalanced |
+| Dataset | Task Type                    | Size (Train/Test) | #Classes | Notes      |
+| ------- | ---------------------------- | ----------------- | -------- | ---------- |
+| AG News | Topic classification         | 120k / 7.6k       | 4        | Balanced   |
+| IMDb    | Sentiment analysis           | 25k               | 2        | Balanced   |
+| Jigsaw  | Toxic comment classification | 160k              | 2        | Imbalanced |
 
-Preprocessing and label distributions are analyzed in the `eda_preprocessing/` notebooks.
+- Sample CSVs (`train_agnews.csv`, `test_agnews.csv`, `imdb.csv`, `jigsaw.csv`) are included in the repo for quick experiments.  
+- Preprocessing and label distributions are analyzed in the `eda_preprocessing/` notebooks.
 
 ---
-# TODO: *******************************************************************************************
+
 ## Reproducibility
 
-* No values are hardcoded in training scripts.
-* Experiments are run with **five random seeds {42, 43, 44, 45, 46}**, and results are averaged.
-
+- No values are hardcoded in training scripts.  
+- Runs can be repeated with fixed random seeds.  
+- By default, we use five seeds {42, 43, 44} and average results.  
+- All necesssary results, configs and outputs are saved in `experiments/`.
 
 ---
 
