@@ -36,24 +36,31 @@ HybridAL extends this pipeline by **adaptively switching the training strategy**
 deltaf1-hybrid-active-learning/
 │
 ├── adaptive_al/                        # Core implementation of active learning framework
-│   ├── strategies/                     # Training strategies
-│   │   ├── base_strategy.py
-│   │   ├── retrain_strategy.py
-│   │   ├── fine_tuning_strategy.py
-│   │   ├── new_only_strategy.py
-│   │   └── deltaf1_strategy.py
+│   ├── active_learning.py              # Active learning loop orchestration
+│   ├── config.py                       # Config management
+│   ├── evaluation.py                   # Evaluation metrics
+│   ├── pool.py                         # Data pool management
+│   ├── __init__.py
 │   │
 │   ├── samplers/                       # Querying / sampling methods
 │   │   ├── base_sampler.py
 │   │   ├── entropy_sampler.py
 │   │   ├── entropy_on_random_subset_sampler.py
-│   │   └── random_sampler.py
+│   │   ├── random_sampler.py
+│   │   └── __init__.py
+│   │
+│   ├── strategies/                     # Training strategies
+│   │   ├── base_strategy.py
+│   │   ├── retrain_strategy.py
+│   │   ├── fine_tuning_strategy.py
+│   │   ├── new_only_strategy.py
+│   │   ├── deltaf1_strategy.py
+│   │   └── __init__.py
 │   │
 │   └── utils/                          # Utility modules
-│       ├── active_learning.py
-│       ├── config.py
-│       ├── evaluation.py
-│       └── pool.py
+│       ├── data_loader.py
+│       ├── text_datasets.py
+│       └── __init__.py
 │
 ├── data/                               # Datasets (AG News, IMDb, Jigsaw, etc.)
 │
@@ -63,17 +70,17 @@ deltaf1-hybrid-active-learning/
 │   ├── 03_jigsaw_eda.ipynb
 │   └── all_datasets_eda.ipynb
 │
-├── experiments/                        # Experiment results & configs
+├── experiments/                        # Experiment results
 │
 ├── media/                              # Figures, plots, and diagrams
 │
 ├── run_example.ipynb                   # Example notebook to run a demo pipeline
-├── experimentation.py                  # Script to run experiments with optuna
+├── experimentation.py                  # Script to run experiments with Optuna
 ├── figure_plotter.py                   # Helper script for plotting results
 ├── requirements.txt                    # Python dependencies
 ├── result_example.json                 # Example output format
 └── README.md                           # Project documentation
-````
+```
 
 ---
 
