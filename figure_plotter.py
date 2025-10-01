@@ -123,9 +123,8 @@ def get_summary_table(experiments_df: pd.DataFrame, hybrid_hyper: dict):
 def plot_f1_vs_time_avg(
         experiments_df: pd.DataFrame,
         hybrid_hyper: dict,
-        dataset: str,
-        save_path: str = None,
-        cmap: str = "tab20b",
+        save_dir_path: str = None,
+        cmap: str = "Set2",
         n_grid: int = 250,
         show_individual: bool = False
 ):
@@ -137,86 +136,81 @@ def plot_f1_vs_time_avg(
     - experiments_df: DataFrame containing experiment results, in the format of get_experiments_df().
     - hybrid_hyper: Dictionary with hyperparameters for the best DeltaF1Strategy
     (keys: 'epsilon', 'k', 'validation_fraction').
-    - dataset: The dataset to plot its strategies results ('agnews', 'imdb', 'jigsaw').
-    - save_path: Optional path to save the plot image. If None, the plot is just shown.
+    - save_dir_path: Optional directory path to save the plot images. If None, the plots are just shown.
     - cmap: Colormap name for strategies.
     - n_grid: Number of points in the common time grid for interpolation.
     - show_individual: Whether to plot faint individual seed F1 curves in the background.
     """
 
-    plt.figure(figsize=figsize)
-    color_map = plt.get_cmap(cmap)
-    strategies = list(strategy_names.keys())
+    for dataset in experiments_df['dataset'].unique():
+        plt.figure(figsize=figsize)
+        color_map = plt.get_cmap(cmap)
+        strategies = list(strategy_names.keys())
 
-    for s_i, strategy in enumerate(strategies):
-        # Gather the time points and F1 scores for each seed
-        seed_curves = []
-        for seed in sorted(experiments_df['seed'].unique()):
-            is_delta_f1 = (strategy == 'DeltaF1Strategy')
+        for s_i, strategy in enumerate(strategies):
+            # Gather the time points and F1 scores for each seed
+            seed_curves = []
+            for seed in sorted(experiments_df['seed'].unique()):
+                is_delta_f1 = (strategy == 'DeltaF1Strategy')
 
-            row = filter_experiments_df(
-                experiments_df, dataset=dataset,
-                strategy=strategy,
-                seed=seed,
-                epsilon=hybrid_hyper.get['epsilon'] if is_delta_f1 else None,
-                k=hybrid_hyper['k'] if is_delta_f1 else None,
-                validation_fraction=hybrid_hyper['validation_fraction'] if is_delta_f1 else None
-            )
+                row = filter_experiments_df(
+                    experiments_df, dataset=dataset,
+                    strategy=strategy,
+                    seed=seed,
+                    epsilon=hybrid_hyper['epsilon'] if is_delta_f1 else None,
+                    k=hybrid_hyper['k'] if is_delta_f1 else None,
+                    validation_fraction=hybrid_hyper['validation_fraction'] if is_delta_f1 else None
+                )
 
-            # Build cumulative time curve
-            round_val_stats = row['round_val_stats'].values[0]
-            times, f1s = [], []
-            t = 0.0
-            for r in round_val_stats:
-                t += float(r['training_time'])
-                times.append(t)
-                f1s.append(float(r['f1_score']))
+                # Build cumulative time curve
+                round_val_stats = row['round_val_stats'].values[0]
+                times, f1s = [], []
+                t = 0.0
+                for r in round_val_stats:
+                    t += float(r['training_time'])
+                    times.append(t)
+                    f1s.append(float(r['f1_score']))
 
-            if len(times) >= 2:
-                seed_curves.append((times, f1s))
+                if len(times) >= 2:
+                    seed_curves.append((times, f1s))
 
-        if len(seed_curves) == 0:
-            continue
+            # Set the common time grid to be between 0 and the minimum max time across seeds
+            max_times = [curve[0][-1] for curve in seed_curves]
+            t_max_common = np.min(max_times)
 
-        # Set the common time grid to be between 0 and the minimum max time across seeds
-        max_times = [curve[0][-1] for curve in seed_curves]
-        t_max_common = np.min(max_times)
-        if t_max_common <= 0:
-            continue
+            grid = np.linspace(0.0, t_max_common, n_grid)
 
-        grid = np.linspace(0.0, t_max_common, n_grid)
+            # Interpolate each seed's F1 scores onto the common time grid
+            interp_f1s = []
+            for times, f1s in seed_curves:
+                f_on_grid = np.interp(grid, times, f1s)
+                interp_f1s.append(f_on_grid)
 
-        # Interpolate each seed's F1 scores onto the common time grid
-        interp_f1s = []
-        for times, f1s in seed_curves:
-            f_on_grid = np.interp(grid, times, f1s)
-            interp_f1s.append(f_on_grid)
+                if show_individual:
+                    plt.plot(times, f1s, color=color_map(s_i / len(color_map.colors)), alpha=0.25, lw=1)
 
-            if show_individual:
-                plt.plot(times, f1s, color=color_map(s_i / len(color_map.colors)), alpha=0.25, lw=1)
+            interp_f1s = np.vstack(interp_f1s)
+            mean_f1 = interp_f1s.mean(axis=0)
 
-        interp_f1s = np.vstack(interp_f1s)
-        mean_f1 = interp_f1s.mean(axis=0)
+            # Calculate standard deviation for the band
+            std = interp_f1s.std(axis=0)
+            lower, upper = mean_f1 - std, mean_f1 + std
 
-        # Calculate standard deviation for the band
-        std = interp_f1s.std(axis=0)
-        lower, upper = mean_f1 - std, mean_f1 + std
+            # Plot mean and band per strategy
+            label = strategy_names[strategy]
+            color = color_map(s_i / len(color_map.colors))
+            plt.plot(grid, mean_f1, label=label, color=color, lw=2.0)
+            plt.fill_between(grid, lower, upper, color=color, alpha=0.15, linewidth=0)
 
-        # Plot mean and band per strategy
-        label = strategy_names[strategy]
-        color = color_map(s_i / len(color_map.colors))
-        plt.plot(grid, mean_f1, label=label, color=color, lw=2.0)
-        plt.fill_between(grid, lower, upper, color=color, alpha=0.15, linewidth=0)
-
-    plt.xlabel('Training Time (seconds)')
-    plt.ylabel('Test Set Macro-F1 Score')
-    plt.title(f'Test Set Macro-F1 vs Training Time (mean across seeds) for {dataset_names[dataset]}')
-    plt.grid(True, alpha=0.25)
-    plt.legend(ncol=2, fontsize=8)
-    plt.tight_layout()
-    if save_path:
-        plt.savefig(save_path, dpi=dpi)
-    plt.show()
+        plt.xlabel('Training Time (seconds)')
+        plt.ylabel('Validation Set Macro-F1 Score')
+        plt.title(f'Validation Set Macro-F1 vs Training Time (mean across seeds) for {dataset_names[dataset]}')
+        plt.grid(True, alpha=0.25)
+        plt.legend(ncol=2, fontsize=8)
+        plt.tight_layout()
+        if save_dir_path:
+            plt.savefig(os.path.join(save_dir_path, f'f1_vs_time_{dataset}.png'), dpi=dpi)
+        plt.show()
 
 
 def plot_hybrid_hyper_variations(experiments_df: pd.DataFrame, best_hybrid_hyper: dict, save_dir_path: str = None,
@@ -232,7 +226,7 @@ def plot_hybrid_hyper_variations(experiments_df: pd.DataFrame, best_hybrid_hyper
     """
     hyperparams_names = {"epsilon": r"$\varepsilon$",
                          "k": r"$k$",
-                         "validation_fraction": "validation_fraction"}
+                         "validation_fraction": r"$c$"}
 
     for param in best_hybrid_hyper.keys():
         plt.figure(figsize=figsize)
@@ -393,7 +387,7 @@ def plot_f1_vs_round_switch(experiments_df: pd.DataFrame, best_hybrid_hyper: dic
     - save_dir_path: Directory path to save the generated plots. If None, plots are just shown.
     """
 
-    for dataset in dataset_names.keys():
+    for dataset in experiments_df['dataset'].unique():
         plt.figure(figsize=figsize)
         cmap = ListedColormap(['#9195F6', '#FB88B4', '#79d955'])
 
@@ -423,9 +417,9 @@ def plot_f1_vs_round_switch(experiments_df: pd.DataFrame, best_hybrid_hyper: dic
                         label=f"Switch Round (Seed {j})")
 
         plt.xlabel('Round Number')
-        plt.ylabel('Test Set Macro-F1 Score')
+        plt.ylabel('Validation Set Macro-F1 Score')
         plt.xticks(range(1, max(total_rounds) + 1), fontsize=10)
-        plt.title(f'Test Set Macro-F1 Score vs Round Number (HybridAL) - {dataset_names[
+        plt.title(f'Validation Set Macro-F1 Score vs Round Number (HybridAL) - {dataset_names[
             dataset]}')
         plt.legend(fontsize='x-small')
         plt.grid(alpha=0.4)
