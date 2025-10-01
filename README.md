@@ -127,11 +127,11 @@ pip install -r requirements.txt
 
 ## Datasets
 
-| Dataset | Task Type                    | Size (Train/Test) | #Classes | Notes      |
-| ------- | ---------------------------- | ----------------- | -------- | ---------- |
-| AG News | Topic classification         | 120k / 7.6k       | 4        | Balanced   |
-| IMDb    | Sentiment analysis           | 25k               | 2        | Balanced   |
-| Jigsaw  | Toxic comment classification | 160k              | 2        | Imbalanced |
+| Dataset | Task Type                    | Size (Train/Val/Test) | #Classes | Notes      |
+| ------- | ---------------------------- |-----------------------| -------- | ---------- |
+| AG News | Topic classification         | 108k / 12k / 7.6k     | 4        | Balanced   |
+| IMDb    | Sentiment analysis           | 35k / 5k / 10k        | 2        | Balanced   |
+| Jigsaw  | Toxic comment classification | 111.7k / 16k / 31.9k  | 2        | Imbalanced |
 
 - Sample CSVs (`train_agnews.csv`, `test_agnews.csv`, `imdb.csv`, `jigsaw.csv`) are included in the repo for quick experiments.  
 - Preprocessing and label distributions are analyzed in the `eda_preprocessing/` notebooks.
@@ -142,8 +142,8 @@ pip install -r requirements.txt
 
 - No values are hardcoded in training scripts.  
 - Runs can be repeated with fixed random seeds.  
-- By default, we use five seeds {42, 43, 44} and average results.  
-- All necesssary results, configs and outputs are saved in `experiments/`.
+- By default, we use three seeds {42, 43, 44} and average results.  
+- All necessary results, configs and outputs are saved in `experiments/`.
 
 ---
 
