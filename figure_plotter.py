@@ -419,8 +419,7 @@ def plot_f1_vs_round_switch(experiments_df: pd.DataFrame, best_hybrid_hyper: dic
         plt.xlabel('Round Number')
         plt.ylabel('Validation Set Macro-F1 Score')
         plt.xticks(range(1, max(total_rounds) + 1), fontsize=10)
-        plt.title(f'Validation Set Macro-F1 Score vs Round Number (HybridAL) - {dataset_names[
-            dataset]}')
+        plt.title(f'Validation Set Macro-F1 Score vs Round Number (HybridAL) - {dataset_names[dataset]}')
         plt.legend(fontsize='x-small')
         plt.grid(alpha=0.4)
         if save_dir_path is not None:
