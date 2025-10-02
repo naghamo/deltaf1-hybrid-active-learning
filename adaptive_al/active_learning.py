@@ -1,6 +1,7 @@
 from datetime import datetime
 import json
 import random
+import inspect
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import time
@@ -220,7 +221,11 @@ class ActiveLearning:
             return []
 
         start = time.perf_counter()
-        selected_indices = self.sampler.select(self.pool, self.cfg.acquisition_batch_size, **self.strategy.pass_args_to_sampler())
+
+        valid_params = inspect.signature(self.sampler.select).parameters
+        sampler_kwargs = {k: v for k, v in self.strategy.pass_args_to_sampler().items() if k in valid_params}
+        selected_indices = self.sampler.select(self.pool, self.cfg.acquisition_batch_size, **sampler_kwargs)
+
         # Letting the strategy decide what to do with it
         # self.pool.add_labeled_samples(selected_indices)
 
@@ -231,12 +236,10 @@ class ActiveLearning:
         if self.cfg.total_rounds != -1:
             return self.cfg.total_rounds
 
-        if self.cfg.pool_proportion_threshold != -1:
-            return self.calculate_total_rounds_pool_proportion(self.cfg.pool_proportion_threshold)
-        return self.calculate_total_rounds_pool_proportion(1)
+        return self.calculate_total_rounds_pool_proportion()
 
 
-    def calculate_total_rounds_pool_proportion(self, pool_proportion: float):
+    def calculate_total_rounds_pool_proportion(self):
         if self.cfg.pool_proportion_threshold != -1:
             return int(len(self.pool.train_dataset)*self.cfg.pool_proportion_threshold/self.cfg.acquisition_batch_size)
 
@@ -263,7 +266,7 @@ class ActiveLearning:
             new_indices = self.sample_next_batch()
 
         if self.current_round != total_rounds:
-            logging.info(f"\n--- Stopped at {self.current_round} (ran out of samples).")
+            logging.info(f"\n--- Stopped earlier at round {self.current_round}.")
 
         metrics = evaluate_model(self.model, self.strategy.criterion, self.cfg.batch_size, dataset=self.test_dataset,
                                  device=self.cfg.device)
@@ -286,6 +289,7 @@ class ActiveLearning:
         else:
             self._no_improve_rounds = 0
         if self._no_improve_rounds >= self.cfg.plateau_patience:
+            logging.info("\n--- Plateau patience reached. Finishing up.")
             return True
         return False
 
@@ -301,9 +305,14 @@ class ActiveLearning:
         }
 
     def _timedout(self):
-        now = time.perf_counter()
-        lim = self.cfg.max_seconds
-        return time.perf_counter() - self.start_time > self.cfg.max_seconds
+        limit = getattr(self.cfg, "max_seconds", None)
+        if limit is None or limit < 0:
+            return False  # unlimited
+        timed_out = (time.perf_counter() - self.start_time) >= limit
+
+        if timed_out:
+            logging.info("\n--- Timed out. Finishing up.")
+        return timed_out
 
     def save_experiment(self, filepath: Optional[Path] = None, timestamp: bool = True) -> None:
         """Save experiment results to a JSON file."""

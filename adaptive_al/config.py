@@ -10,11 +10,9 @@ from typing import List, Dict, Any, Tuple, Optional, Set
 @dataclass
 class ExperimentConfig:
     # --- Reproducibility
-    # seeds: List[int] = field(default_factory=lambda: [9, 31, 8,
-    #                                                   106, 7,
-    #                                                   207, 15]) # Seeds for multiple runs to average results
     seed: int = 42
-    total_rounds: int = -1 # Total rounds to run active learning (model training + sampling new data), -1 for until we run out of data
+    total_rounds: int = -1 # Total rounds to run active learning (model training + sampling new data),
+                           # -1 means until we run out of data
 
     # --- Pool config
     initial_pool_size: int = 200 # Initial size of the pool for training
@@ -26,7 +24,7 @@ class ExperimentConfig:
     plateau_f1_threshold: float = 0.5
 
     approximate_evaluation_subset_size: int = -1
-    max_seconds:int = -1
+    max_seconds: int = None # i.e. no timeout
 
     pool_proportion_threshold: float = -1
 
