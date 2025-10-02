@@ -1,15 +1,17 @@
-# Python 3.11 recommended
+# Python 3.11 is required
 
 # Core ML & Transformers
 torch>=1.13.0
 transformers>=4.35.0
 datasets>=2.14.0
 scikit-learn>=1.3.0
+optuna
 
 # Data handling & preprocessing
 pandas>=1.5.0
 tqdm>=4.64.0
 json5
+
 
 # Visualization & EDA
 matplotlib>=3.7.0
