@@ -9,6 +9,21 @@ import optuna
 from adaptive_al.active_learning import ActiveLearning, ExperimentConfig
 HOURS = 3600
 def objective(trial, strategy, data_sets, seeds, common_config_parameters, data_sets_num_labels, start_time=0):
+    """
+    Objective function for Optuna hyperparameter optimization.
+
+    Args:
+        trial (optuna.trial.Trial): Current Optuna trial object.
+        strategy (str): Active learning strategy name.
+        data_sets (list): List of dataset names to evaluate on.
+        seeds (list): Random seeds for reproducibility.
+        common_config_parameters (dict): Base configuration dictionary shared across experiments.
+        data_sets_num_labels (dict): Mapping of dataset names to number of labels.
+        start_time (float): Start time of the experiment (for logging elapsed time).
+
+    Returns:
+        float: Average F1 score across datasets and seeds for the given trial.
+    """
     # Hyperparameters chosen by Optuna
     validation_fraction = trial.suggest_categorical("validation_fraction", [0.02, 0.05, 0.1, 0.2])
     epsilon = trial.suggest_categorical("epsilon", [0.05, 0.02, 0.01, 0.005])
@@ -21,7 +36,7 @@ def objective(trial, strategy, data_sets, seeds, common_config_parameters, data_
     }
 
     f1_scores = []
-
+    # Loop through datasets and seeds
     for data_set in data_sets:
         for seed in seeds:
             logging.info(f"Evaluating hyperparameters: validation_fraction: {validation_fraction}, epsilon: {epsilon}, k: {k}")
@@ -59,12 +74,14 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
-
+    # Number of labels per dataset
     data_sets_num_labels = {"agnews": 4, "imdb": 2, "jigsaw": 2}
+    # Seeds for reproducibility
     seeds = [42, 43, 44]
+    # Strategies and datasets to evaluate
     strategies = ["DeltaF1Strategy", "FineTuneStrategy", "NewOnlyStrategy", "RetrainStrategy"]
     data_sets = ["agnews", "imdb", "jigsaw"]
-
+    # Common configuration parameters
     common_config_parameters = {
         "save_dir": Path("./results/sep_25"),
         "initial_pool_size": 200,
@@ -94,7 +111,7 @@ if __name__ == "__main__":
         "epochs": 5,
         "batch_size": 16
     }
-
+    # Run experiments for each strategy
     for strategy in strategies:
         if strategy == "DeltaF1Strategy":
             logging.info(f"Running Optuna study for {strategy} (averaging across datasets & seeds)")
@@ -105,13 +122,14 @@ if __name__ == "__main__":
             )
             logging.info(f"Best params for {strategy}: {study.best_params}, Avg F1={study.best_value:.4f}")
         else:
+            # For other strategies, just run experiments directly without Optuna
             for data_set, seed in itertools.product(data_sets, seeds):
                 experiment_name = f"{strategy}_{data_set}_{seed}"
                 experiment_path = common_config_parameters["save_dir"] / experiment_name
                 if experiment_path.exists():
                     logging.info(f"Skipping existing experiment: {experiment_name}")
                     continue
-
+                # Build configuration for this experiment
                 config_parameters = common_config_parameters.copy()
                 config_parameters.update({
                     "experiment_name": experiment_name,
@@ -122,7 +140,7 @@ if __name__ == "__main__":
                     "strategy_kwargs": {},
                     "sampler_kwargs": {"random_subset_size": 1000, "seed": seed}
                 })
-
+                # Run active learning pipeline
                 experiment_config = ExperimentConfig(**config_parameters)
                 al = ActiveLearning(experiment_config)
                 final_metrics = al.run_full_pipeline()
