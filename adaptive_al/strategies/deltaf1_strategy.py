@@ -17,7 +17,6 @@ class DeltaF1Strategy(BaseStrategy):
     def __init__(self, epsilon: float, k: int, validation_fraction: float = 0, **kwargs):
         super().__init__(**kwargs)
 
-        # Or anything else specific to the deltaf1 method . . . then pass those in kwargs of cfg
         self.epsilon = epsilon
         self.k = k
 
@@ -57,7 +56,6 @@ class DeltaF1Strategy(BaseStrategy):
             return stats
 
         pool.add_labeled_samples(new_validation_indices)
-        # On what to evaluate???
         cur_f1 = self._calc_f1(pool.get_subset(self.validation_indices))
         delta_f1 = cur_f1 - self.prev_f1 if self.prev_f1 is not None else float('inf')
         self.prev_f1 = cur_f1
