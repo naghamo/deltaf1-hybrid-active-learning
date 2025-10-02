@@ -64,10 +64,7 @@ deltaf1-hybrid-active-learning/
 │
 ├── data/                               # Datasets (AG News, IMDb, Jigsaw, etc.)
 │
-├── eda_preprocessing/                  # Exploratory data analysis notebooks
-│   ├── 01_agnews_eda.ipynb
-│   ├── 02_imdb_eda.ipynb
-│   ├── 03_jigsaw_eda.ipynb
+├── eda_preprocessing/                  # Exploratory data analysis notebook
 │   └── all_datasets_eda.ipynb
 │
 ├── experiments/                        # Experiment results

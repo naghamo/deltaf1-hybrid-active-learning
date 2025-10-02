@@ -195,3 +195,6 @@ cython_debug/
 
 # Other
 plotting_example.ipynb
+eda_preprocessing/01_agnews_eda.ipynb
+eda_preprocessing/02_imdb_eda.ipynb
+eda_preprocessing/03_jigsaw_eda.ipynb
