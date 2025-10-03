@@ -105,6 +105,7 @@ def get_summary_table(experiments_df: pd.DataFrame, hybrid_hyper: dict):
                 training_times.append(total_time)
 
             avg_f1 = filtered_df['test_f1_score'].mean()
+            avg_accuracy = filtered_df['test_accuracy'].mean()
             avg_time = np.mean(training_times)
             avg_total_rounds = filtered_df['total_rounds'].mean()
 
@@ -112,6 +113,7 @@ def get_summary_table(experiments_df: pd.DataFrame, hybrid_hyper: dict):
                 'Dataset': dataset_names.get(dataset, dataset),
                 'Strategy': strategy_names.get(strategy, strategy),
                 'Avg Test Set Macro-F1 Score': f"{avg_f1:.4f}",
+                'Avg Test Set Accuracy': f"{avg_accuracy:.4f}",
                 'Avg Training Time (sec)': f"{avg_time:.2f}",
                 'Avg Total Rounds': f"{avg_total_rounds:.2f}"
             })
