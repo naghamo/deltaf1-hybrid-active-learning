@@ -104,18 +104,25 @@ def get_summary_table(experiments_df: pd.DataFrame, hybrid_hyper: dict):
                 total_time = sum(round['training_time'] for round in round_val_stats)
                 training_times.append(total_time)
 
-            avg_f1 = filtered_df['test_f1_score'].mean()
-            avg_accuracy = filtered_df['test_accuracy'].mean()
+            avg_f1 = filtered_df['test_f1_score'].mean()*100
+            std_f1 = filtered_df['test_f1_score'].std()*100
+
+            avg_accuracy = filtered_df['test_accuracy'].mean()*100
+            std_accuracy = filtered_df['test_accuracy'].std()*100
+
             avg_time = np.mean(training_times)
+            std_time = np.std(training_times)
+
             avg_total_rounds = filtered_df['total_rounds'].mean()
+            std_total_rounds = filtered_df['total_rounds'].std()
 
             summary_data.append({
                 'Dataset': dataset_names.get(dataset, dataset),
                 'Strategy': strategy_names.get(strategy, strategy),
-                'Avg Test Set Macro-F1 Score': f"{avg_f1:.4f}",
-                'Avg Test Set Accuracy': f"{avg_accuracy:.4f}",
-                'Avg Training Time (sec)': f"{avg_time:.2f}",
-                'Avg Total Rounds': f"{avg_total_rounds:.2f}"
+                'Avg Test Set Macro-F1 Score': f"{avg_f1:.2f}% ± {std_f1:.2f}%",
+                'Avg Test Set Accuracy': f"{avg_accuracy:.2f}% ± {std_accuracy:.2f}%",
+                'Avg Training Time (sec)': f"{avg_time:.2f} ± {std_time:.2f}",
+                'Avg Total Rounds': f"{avg_total_rounds:.2f} ± {std_total_rounds:.2f}"
             })
 
     summary_df = pd.DataFrame(summary_data)
@@ -233,6 +240,8 @@ def plot_hybrid_hyper_variations(experiments_df: pd.DataFrame, best_hybrid_hyper
     for param in best_hybrid_hyper.keys():
         plt.figure(figsize=figsize)
         color_map = plt.get_cmap(cmap)
+        y_lim_lower = 0.0
+        y_lim_upper = 1.0
 
         for i, dataset in enumerate(experiments_df['dataset'].unique()):
             subset = experiments_df[
@@ -248,13 +257,25 @@ def plot_hybrid_hyper_variations(experiments_df: pd.DataFrame, best_hybrid_hyper
             plt.plot(means.index, means.values, marker='o', label=dataset_names.get(dataset, dataset),
                      color=color_map(i))
 
+            # Std band (mean +- std)
+            stds = subset.groupby(param)['test_f1_score'].std()
+            lower, upper = means - stds, means + stds
+            plt.fill_between(means.index, lower, upper, color=color_map(i), alpha=0.15, linewidth=0)
+
+            # Buffering the y limits for legend aesthetics
+            band_uppers = means + stds
+            band_lowers = means - stds
+            y_lim_upper = band_uppers.max() + 0.05
+            y_lim_lower = band_lowers.min() - 0.05
+
         plt.xlabel(hyperparams_names[param])
         plt.ylabel('Mean Test Set Macro-F1 Score')
+        plt.ylim(y_lim_lower, y_lim_upper)
 
         title_postfix = ', '.join([f"{hyperparams_names[k]}={v}" for k, v in best_hybrid_hyper.items() if k != param])
         plt.title(f'Mean Test Set Macro-F1 Score vs {hyperparams_names[param]} ({title_postfix})')
 
-        plt.legend(frameon=False)
+        plt.legend(frameon=False, fontsize='small')
         plt.grid(alpha=0.25)
         plt.tight_layout()
 
