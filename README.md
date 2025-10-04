@@ -135,7 +135,7 @@ python experimentation.py --help
 
 1. Launch Jupyter: `jupyter lab`
 2. Open `run_example.ipynb` and run all cells
-3. This notebook demonstrates the `adaptive_al` module usage with example configurations
+3. This notebook demonstrates the `adaptive_al` module usage (classes, methods, and workflow) with example configurations
 
 ### Outputs and Visualization
 
