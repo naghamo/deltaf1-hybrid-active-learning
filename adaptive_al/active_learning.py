@@ -131,8 +131,6 @@ class ActiveLearning:
         self.sampler_kwargs = cfg.sampler_kwargs
 
         # --- Instantiate strategy
-        # if cfg.strategy_class == 'DeltaF1Strategy':
-        #     self.strategy_kwargs['val_dataset'] = self.val_dataset
 
         self.strategy = self.strategy_cls(
             model=self.model,  # Passing model instance
@@ -145,8 +143,6 @@ class ActiveLearning:
             device=cfg.device,
             epochs=cfg.epochs,
             batch_size=cfg.batch_size,
-            # pool: DataPool = self.pool,
-            # val_dataset=self.val_dataset,
             **self.strategy_kwargs  # optional extra kwargs
         )
 
