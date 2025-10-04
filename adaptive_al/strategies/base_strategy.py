@@ -1,3 +1,11 @@
+"""
+Base strategy class for active learning training approaches.
+
+This module defines the abstract BaseStrategy class that provides common
+training functionality and defines the interface that all training strategies
+must implement. Strategies control how models are trained each round.
+"""
+
 import copy
 import logging
 import time
@@ -13,7 +21,17 @@ from transformers import AutoModelForSequenceClassification
 
 
 class BaseStrategy(ABC):
-    """Base class for training strategies."""
+    """
+    Abstract base class for active learning training strategies.
+
+    This class provides common training infrastructure including model management,
+    optimizer/criterion/scheduler initialization, epoch-based training loops,
+    and timing tracking. Subclasses must implement _train_implementation to
+    define strategy-specific training logic.
+
+    Strategies can be initialized either from scratch with all components, or
+    by copying configuration from an existing strategy instance.
+    """
 
     def __init__(self, *,
                  strategy: "BaseStrategy" = None,
@@ -22,6 +40,7 @@ class BaseStrategy(ABC):
                  criterion_cls=None, criterion_kwargs=None,
                  scheduler_cls=None, scheduler_kwargs=None,
                  device: str = None, epochs: int = None, batch_size: int = None):
+        """Initialize the strategy either from scratch or by copying another strategy."""
         if strategy is not None:
             # Initialize from another strategy
             self.model = strategy.model
@@ -64,13 +83,17 @@ class BaseStrategy(ABC):
         """
         Train model for one round with automatic timing.
 
+        This method wraps the strategy-specific _train_implementation with
+        timing logic and returns combined statistics.
+
         Args:
-            pool: Current Data Pool
-            new_indices: New indices to train the model on (not yet in pool)
+            pool (DataPool): Current data pool with labeled/unlabeled splits.
+            new_indices (List[int]): Newly sampled indices to add to training
+                                     (not yet added to pool).
 
         Returns:
-            model: Updated model
-            stats: Training statistics including timing
+            Dict: Training statistics including 'training_time' and any
+                  strategy-specific metrics.
         """
         start_time = time.time()
 
@@ -90,6 +113,15 @@ class BaseStrategy(ABC):
         return final_stats
 
     def _train_batch(self, batch):
+        """
+        Train on a single batch.
+
+        Args:
+            batch: Tuple of (inputs, targets) from DataLoader.
+
+        Returns:
+            float: Loss value for this batch.
+        """
         inputs, targets = batch
         inputs = {key: tensor.to(self.device) for key, tensor in inputs.items()}
         targets = targets.to(self.device)
@@ -104,6 +136,15 @@ class BaseStrategy(ABC):
         return loss.item()
 
     def train_epochs(self, dataloader) -> tuple[float | Any, int | Any]:
+        """
+        Train the model for the configured number of epochs.
+
+        Args:
+            dataloader: DataLoader providing training batches.
+
+        Returns:
+            tuple: (total_loss, num_batches) across all epochs.
+        """
         start_time = time.time()
         total_loss = 0.0
         num_batches = 0
@@ -133,6 +174,18 @@ class BaseStrategy(ABC):
         return total_loss, num_batches
 
     def get_stats(self, total_loss, num_batches, tot_samples, new_samples):
+        """
+        Compute training statistics for the current round.
+
+        Args:
+            total_loss (float): Cumulative loss across all batches.
+            num_batches (int): Total number of batches processed.
+            tot_samples: All samples used in training this round.
+            new_samples: Newly added samples this round.
+
+        Returns:
+            Dict: Statistics including avg_loss, epochs, total_samples, new_samples.
+        """
         avg_loss = total_loss / num_batches if num_batches > 0 else 0.0
 
         # Return model and training statistics
@@ -144,7 +197,12 @@ class BaseStrategy(ABC):
         }
 
     def _initialize_components(self):
-        """Initialize components for training via this strategy."""
+        """
+        Initialize or reinitialize training components.
+
+        Resets model to initial weights, moves it to device, and creates
+        new instances of optimizer, criterion, and scheduler.
+        """
         self.model.load_state_dict(self.initial_model_state_dict)
         self.model.to(self.device)
         self.optimizer = self.optimizer_cls(self.model.parameters(), **self.optimizer_kwargs)
@@ -155,20 +213,41 @@ class BaseStrategy(ABC):
             self.scheduler = self.scheduler_cls(self.optimizer, **self.scheduler_kwargs)
 
     def reset(self):
-        """Reset model to initial state by recreating it."""
+        """
+        Reset model and training components to initial state.
+
+        Useful for strategies that need to retrain from scratch each round.
+        """
         logging.info("Resetting model to initial state . . .")
         self._initialize_components()
 
     @abstractmethod
     def _train_implementation(self, pool: DataPool, new_indices: List[int]) -> Dict:
         """
-        Strategy-specific training implementation.
+        Strategy-specific training implementation (must be overridden).
+
+        Subclasses must implement this method to define their specific
+        training approach (e.g., incremental training, full retraining,
+        weighted sampling, etc.).
+
+        Args:
+            pool (DataPool): Current data pool with labeled/unlabeled splits.
+            new_indices (List[int]): Newly sampled indices to train on
+                                     (not yet added to pool).
 
         Returns:
-            pool: Current Data Pool
-            new_indices: New indices to train the model on (not yet in pool)
+            Dict: Strategy-specific training statistics.
         """
         pass
 
     def pass_args_to_sampler(self) -> Dict[str, Any]:
+        """
+        Provide arguments to be passed to the sampler.
+
+        Strategies can override this to pass additional information
+        (e.g., model predictions, uncertainties) to samplers that need it.
+
+        Returns:
+            Dict[str, Any]: Arguments to pass to sampler's select method.
+        """
         return {}

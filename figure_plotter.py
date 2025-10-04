@@ -1,3 +1,11 @@
+"""
+Visualization and analysis script for active learning experiment results.
+
+This script provides utilities for loading experiment results from JSON files
+and generating publication-quality visualizations and summary statistics for
+comparing different active learning strategies across datasets.
+"""
+
 import json
 import os
 import pandas as pd
@@ -25,12 +33,12 @@ def filter_experiments_df(df: pd.DataFrame, **filter_kwargs):
     Filters the experiments DataFrame for a specific dataset and strategy. If the strategy is 'DeltaF1Strategy',
     it also filters based on provided hyperparameters.
 
-    Parameters:
-    - df: The DataFrame containing experiment results.
-    - filter_kwargs: keyword arguments for filtering, such as 'dataset', 'strategy', 'seed' or hyperparameters for 'DeltaF1Strategy'.
+    Args:
+        df (pd.DataFrame): DataFrame containing experiment results.
+        **filter_kwargs: Keyword arguments for filtering (e.g., dataset, strategy, seed).
 
     Returns:
-    - A filtered pandas DataFrame.
+        pd.DataFrame: Filtered DataFrame matching all specified criteria.
     """
     mask = pd.Series(True, index=df.index)
     if filter_kwargs:
@@ -45,11 +53,12 @@ def get_experiments_df(main_results_path: str):
     """
     Reads all experiment result files from the specified directory and compiles them into a single DataFrame.
 
-    Parameters:
-    - main_results_path: Path to the directory containing experiment result files in .json format.
+    Args:
+        main_results_path (str): Path to directory containing experiment JSON files.
 
     Returns:
-    - A pandas DataFrame containing all experiments' data.
+        pd.DataFrame: DataFrame with columns including seed, strategy, dataset,
+                     test_f1_score, test_accuracy, and round_val_stats.
     """
     all_data = []
     for root, dirs, files in os.walk(main_results_path):
@@ -86,6 +95,22 @@ def get_experiments_df(main_results_path: str):
 
 
 def get_summary_table(experiments_df: pd.DataFrame, hybrid_hyper: dict):
+    """
+    Generate summary statistics table for all strategies and datasets.
+
+    Computes mean and standard deviation across seeds for test F1 score,
+    accuracy, training time, and total rounds for each strategy-dataset pair.
+    For DeltaF1Strategy, uses the specified hyperparameters.
+
+    Args:
+        experiments_df (pd.DataFrame): DataFrame from get_experiments_df().
+        hybrid_hyper (dict): Hyperparameters for DeltaF1Strategy
+                            (keys: 'epsilon', 'k', 'validation_fraction').
+
+    Returns:
+        pd.DataFrame: Summary table with formatted statistics including
+                     Dataset, Strategy, test scores, training time, and rounds.
+    """
     summary_data = []
 
     for dataset in experiments_df['dataset'].unique():
@@ -141,14 +166,14 @@ def plot_f1_vs_time_avg(
     Plots Macro-F1 vs cumulative training time, averaged across seeds per strategy, with interpolation onto a common
     time grid and a variability band.
 
-    Parameters:
-    - experiments_df: DataFrame containing experiment results, in the format of get_experiments_df().
-    - hybrid_hyper: Dictionary with hyperparameters for the best DeltaF1Strategy
-    (keys: 'epsilon', 'k', 'validation_fraction').
-    - save_dir_path: Optional directory path to save the plot images. If None, the plots are just shown.
-    - cmap: Colormap name for strategies.
-    - n_grid: Number of points in the common time grid for interpolation.
-    - show_individual: Whether to plot faint individual seed F1 curves in the background.
+    Args:
+        experiments_df (pd.DataFrame): DataFrame from get_experiments_df().
+        hybrid_hyper (dict): Hyperparameters for DeltaF1Strategy
+                            (keys: 'epsilon', 'k', 'validation_fraction').
+        save_dir_path (str, optional): Directory to save plots. If None, only displays.
+        cmap (str): Matplotlib colormap name for strategy colors (default: "Set2").
+        n_grid (int): Number of interpolation points for time grid (default: 250).
+        show_individual (bool): Whether to show faint individual seed curves (default: False).
     """
 
     for dataset in experiments_df['dataset'].unique():
@@ -228,10 +253,12 @@ def plot_hybrid_hyper_variations(experiments_df: pd.DataFrame, best_hybrid_hyper
     Plots 3 figures, where in each figure two of the three hybridAL hyperparameters are fixed to the best values,   and the third is varied.
     The figures show the mean test set F1 score vs the varied hyperparameter, with one line per dataset.
 
-    Parameters:
-    - experiments_df: DataFrame containing the experimental results.
-    - best_hybrid_hyper: Dictionary containing the best hyperparameters for hybridAL.
-    - save_dir_path: DIRECTORY path to save the generated plots. If None, plots are just shown.
+    Args:
+        experiments_df (pd.DataFrame): DataFrame from get_experiments_df().
+        best_hybrid_hyper (dict): Best hyperparameters for DeltaF1Strategy
+                                 (keys: 'epsilon', 'k', 'validation_fraction').
+        save_dir_path (str, optional): Directory to save plots. If None, only displays.
+        cmap (str): Matplotlib colormap for dataset colors (default: 'tab10').
     """
     hyperparams_names = {"epsilon": r"$\varepsilon$",
                          "k": r"$k$",
@@ -289,10 +316,11 @@ def plot_test_f1_bar_chart(experiments_df: pd.DataFrame, best_hybrid_hyper: dict
     """
     Plots a bar chart comparing the mean test set macro-F1 scores of different strategies, averaged across all datasets and seeds.
 
-    Parameters:
-    - experiments_df: DataFrame containing experiment results.
-    - best_hybrid_hyper: Dictionary containing the best hyperparameters for the HybridAL strategy
-    - save_path: Optional path to save the generated plot.
+    Args:
+        experiments_df (pd.DataFrame): DataFrame from get_experiments_df().
+        best_hybrid_hyper (dict): Best hyperparameters for DeltaF1Strategy
+                                 (keys: 'epsilon', 'k', 'validation_fraction').
+        save_path (str, optional): Full file path to save the plot. If None, only displays.
     """
     results = []
 
@@ -351,10 +379,11 @@ def plot_confusion_heatmaps_hybrid(experiments_df: pd.DataFrame, hybrid_hyper: d
     """
     Plots 3 average normalized confusion matrix heatmaps for the hybrid strategy, one per dataset.
 
-    Parameters:
-    - experiments_df: DataFrame containing experiments results.
-    - hybrid_hyper: Dictionary containing the hyperparameters for the hybrid strategy.
-    - save_dir_path: Directory path to save the generated plots.
+    Args:
+        experiments_df (pd.DataFrame): DataFrame from get_experiments_df().
+        hybrid_hyper (dict): Hyperparameters for DeltaF1Strategy
+                            (keys: 'epsilon', 'k', 'validation_fraction').
+        save_dir_path (str, optional): Directory to save plots. If None, only displays.
     """
 
     for dataset in experiments_df['dataset'].unique():
@@ -404,10 +433,11 @@ def plot_f1_vs_round_switch(experiments_df: pd.DataFrame, best_hybrid_hyper: dic
     """
     Plots 3 plots of test set F1 score vs round number for HybridAL. There's a plot per dataset, and in each plot there is a line per seed. The round that the switch happened is marked.
 
-    Parameters:
-    - experiments_df: DataFrame containing the experiments' data.
-    - best_hybrid_hyper: Dictionary containing the best hyperparameters for HybridAL.
-    - save_dir_path: Directory path to save the generated plots. If None, plots are just shown.
+    Args:
+        experiments_df (pd.DataFrame): DataFrame from get_experiments_df().
+        best_hybrid_hyper (dict): Best hyperparameters for DeltaF1Strategy
+                                 (keys: 'epsilon', 'k', 'validation_fraction').
+        save_dir_path (str, optional): Directory to save plots. If None, only displays.
     """
 
     for dataset in experiments_df['dataset'].unique():

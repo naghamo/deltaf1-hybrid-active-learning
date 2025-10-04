@@ -1,3 +1,11 @@
+"""
+Model evaluation utilities for active learning experiments.
+
+This module provides functions for evaluating PyTorch models, including
+full dataset evaluation, approximate subset-based evaluation for efficiency,
+variance analysis across multiple evaluations, and confusion matrix computation.
+"""
+
 import logging
 from typing import Optional, Dict, List, Tuple
 import random

@@ -1,3 +1,11 @@
+"""
+Active learning orchestration and experiment management.
+
+This module contains the main ActiveLearning class that manages the complete
+active learning pipeline, including model initialization, training rounds,
+sampling strategies, and result tracking.
+"""
+
 from datetime import datetime
 import json
 import random
@@ -41,7 +49,12 @@ class ActiveLearning:
         self.confusion_matrix = None
 
     def _initialize(self):
-        """Initialize everything for the active learning rounds."""
+        """
+        Initialize all components for active learning.
+
+        Sets up seeds, model, tokenizer, datasets, data pool, training classes
+        (optimizer, criterion, scheduler), strategy, sampler, and tracking variables.
+        """
         self.set_seeds(self.cfg.seed)
 
         self._initialize_model_and_tokenizer()
@@ -54,6 +67,7 @@ class ActiveLearning:
         self._initialize_timer()
 
     def _initialize_timer(self):
+        """Initializing starting time"""
         self.start_time = time.perf_counter()
 
     def _initialize_model_and_tokenizer(self):
@@ -73,7 +87,10 @@ class ActiveLearning:
 
     def _initialize_pool(self):
         """
-        Initialize the pool for active learning rounds.
+        Initialize the data pool with random initial samples.
+
+        Creates a DataPool object with a random subset of training data
+        based on cfg.initial_pool_size.
         """
         # Initialize pool with random samples
         all_indices = list(range(len(self.train_dataset)))
@@ -82,7 +99,11 @@ class ActiveLearning:
 
     def _initialize_classes(self):
         """
-        Resolve the provided class names. Each one needs to be properly stored in corresponding module.
+        Resolve and instantiate all training components.
+
+        Resolves class names from config to actual Python classes for:
+        optimizer, criterion, scheduler, strategy, and sampler. Then
+        instantiates the strategy and sampler with appropriate parameters.
         """
         cfg = self.cfg
 
@@ -135,7 +156,10 @@ class ActiveLearning:
 
     def _initialize_round_tracking(self):
         """
-        Initialize properties to start round tracking.
+        Initialize tracking variables for active learning rounds.
+
+        Sets up round_stats list, final_test_stats dict, and resets
+        the current_round counter to 0.
         """
         self.round_stats: List[Dict] = []
         self.final_test_stats: Dict = {}
@@ -143,6 +167,15 @@ class ActiveLearning:
         self.current_round = 0
 
     def _load_data(self):
+        """
+        Load dataset based on configuration.
+
+        Uses eval() to dynamically call the appropriate load function
+        (load_agnews, load_imdb, or load_jigsaw) based on cfg.data.
+
+        Returns:
+            tuple: (train_dataset, val_dataset, test_dataset) tokenized datasets.
+        """
         dataset_name = self.cfg.data
 
         # Make sure the index is reset, or we need to change the pool initialization
@@ -205,6 +238,13 @@ class ActiveLearning:
         return round_stats
 
     def _update_last_stats(self, val_stats):
+        """
+        Update internal tracking of last validation statistics.
+
+        Args:
+            val_stats (dict): Dictionary containing validation metrics
+                             (f1_score, loss, accuracy).
+        """
         self.last_stats["f1_score"] =  val_stats["f1_score"]
         self.last_stats["loss"] = val_stats["loss"]
         self.last_stats["accuracy"] = val_stats["accuracy"]
@@ -233,6 +273,15 @@ class ActiveLearning:
         return selected_indices
 
     def calculate_total_rounds(self):
+        """
+        Calculate the total number of rounds to run.
+
+        Returns the configured total_rounds if set, otherwise calculates
+        based on pool proportion threshold.
+
+        Returns:
+            int: Number of rounds to execute, or -1 for unlimited.
+        """
         if self.cfg.total_rounds != -1:
             return self.cfg.total_rounds
 
@@ -240,13 +289,32 @@ class ActiveLearning:
 
 
     def calculate_total_rounds_pool_proportion(self):
+        """
+        Calculate rounds based on pool proportion threshold.
+
+        Determines how many rounds are needed to reach the target proportion
+        of the training pool, or uses the full pool if no threshold is set.
+
+        Returns:
+            int: Number of rounds needed to reach the target pool proportion.
+        """
         if self.cfg.pool_proportion_threshold != -1:
             return int(len(self.pool.train_dataset)*self.cfg.pool_proportion_threshold/self.cfg.acquisition_batch_size)
 
         return int(len(self.pool.train_dataset)/self.cfg.acquisition_batch_size)
 
     def run_full_pipeline(self):
-        """Running full pipeline of active learning for provided amount of rounds."""
+        """
+        Execute the complete active learning pipeline.
+
+        Runs the full cycle of training rounds with active sampling until
+        one of the stopping conditions is met: reaching total_rounds,
+        exhausting unlabeled data, detecting plateau, or timing out.
+        Performs final evaluation on the test set.
+
+        Returns:
+            dict: Final test set metrics (loss, f1_score, accuracy).
+        """
         self._initialize()
         total_rounds = self.calculate_total_rounds()
 
@@ -277,9 +345,24 @@ class ActiveLearning:
         return metrics
 
     def has_plateaued(self):
+        """
+        Check if model performance has plateaued.
+
+        Returns:
+            bool: True if plateau detected, False otherwise.
+        """
         return self._has_plateaued_f1_based()
 
     def _has_plateaued_f1_based(self):
+        """
+        Check for plateau based on F1 score improvement.
+
+        Tracks consecutive rounds with insufficient F1 improvement against
+        the configured plateau_f1_threshold and plateau_patience.
+
+        Returns:
+            bool: True if F1 improvements have plateaued for patience rounds.
+        """
         if self.current_round < self.cfg.min_rounds_before_plateau or self.cfg.plateau_patience == -1:
             return False
         current_f1 = self.round_stats[-1]["f1_score"]
@@ -305,6 +388,12 @@ class ActiveLearning:
         }
 
     def _timedout(self):
+        """
+        Check if the experiment has exceeded its time limit.
+
+        Returns:
+            bool: True if max_seconds limit exceeded, False otherwise.
+        """
         limit = getattr(self.cfg, "max_seconds", None)
         if limit is None or limit < 0:
             return False  # unlimited

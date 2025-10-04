@@ -1,3 +1,11 @@
+"""
+Entropy-based uncertainty sampling for active learning.
+
+This module implements an acquisition function that selects samples based
+on predictive entropy, choosing examples where the model is most uncertain.
+Optionally supports hybrid selection with a random component.
+"""
+
 import random
 
 import numpy as np
@@ -14,20 +22,72 @@ from ..pool import DataPool
 
 
 class EntropySampler(BaseSampler):
-    """Selects samples with the highest predictive entropy."""
+    """
+    Selects samples with the highest predictive entropy (uncertainty).
+
+    This sampler computes the entropy of the model's predicted probability
+    distribution for each unlabeled sample and selects those with the highest
+    entropy values. High entropy indicates the model is uncertain about the
+    prediction, making these samples potentially valuable for improving
+    model performance.
+
+    Attributes:
+        show_progress (bool): Whether to display a progress bar during selection, since it may take a lot of time.
+    """
 
     def __init__(self, show_progress=False, **kwargs):
+        """
+        Initialize the entropy sampler.
+
+        Args:
+            show_progress (bool): Whether to show progress bar during sampling (default: False).
+            **kwargs: Arguments passed to BaseSampler (model, batch_size, device, seed).
+        """
         super().__init__(**kwargs)
         self.show_progress = show_progress
 
     def get_unlabeled_indices(self, pool: DataPool):
+        """
+        Get indices of all unlabeled samples from the pool.
+
+        Args:
+            pool (DataPool): Data pool containing labeled and unlabeled samples.
+
+        Returns:
+            List[int]: Indices of unlabeled samples.
+        """
         return pool.get_unlabeled_indices()
 
     def _are_unlabeled(self,pool, suspicious_indices):
+        """
+        Verify that all given indices are in the unlabeled pool.
+
+        Args:
+            pool (DataPool): Data pool to check against.
+            suspicious_indices: Indices to verify.
+
+        Returns:
+            bool: True if all indices are unlabeled, False otherwise.
+        """
         unlabeled = pool.get_unlabeled_indices()
         return all(i in unlabeled for i in suspicious_indices)
 
     def select(self, pool: DataPool, num_samples: int, random_indices_fraction: float = 0) -> List[int]:
+        """
+        Select samples with highest predictive entropy from the unlabeled pool.
+
+        Computes entropy of model predictions for all unlabeled samples and
+        selects those with highest uncertainty.
+
+        Args:
+            pool (DataPool): Data pool containing labeled and unlabeled samples.
+            num_samples (int): Total number of samples to select.
+            random_indices_fraction (float): Fraction of samples to select randomly
+                                            instead of by entropy (default: 0).
+
+        Returns:
+            List[int]: Selected indices, combining high-entropy and random samples.
+        """
         self.model.eval()
         self.model.to(self.device)
 

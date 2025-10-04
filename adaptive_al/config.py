@@ -1,3 +1,11 @@
+"""
+Configuration dataclass for active learning experiments.
+
+This module defines ExperimentConfig, which contains all parameters needed
+to configure and run an active learning experiment, including model settings,
+training hyperparameters, sampling strategies, and stopping criteria.
+"""
+
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional, Set
@@ -9,6 +17,13 @@ from typing import List, Dict, Any, Tuple, Optional, Set
 
 @dataclass
 class ExperimentConfig:
+    """
+    Configuration for active learning experiments.
+
+    This dataclass encapsulates all settings required for running an active
+    learning pipeline, including reproducibility seeds, pool management,
+    training parameters, model configuration, and logging options.
+    """
     # --- Reproducibility
     seed: int = 42
     total_rounds: int = -1 # Total rounds to run active learning (model training + sampling new data),
@@ -61,7 +76,6 @@ class ExperimentConfig:
     epochs: int = 5
     batch_size: int = 16
 
-
     # Dataset for the model
     data: str = field(default=None)
 
@@ -69,13 +83,18 @@ class ExperimentConfig:
     save_dir: Path = Path("./results")
     experiment_name: str = "dummy"
 
-
-
-
-
-
     def __post_init__(self):
-        """Validate required fields and ensure kwargs are dictionaries."""
+        """
+        Validate required configuration fields after initialization.
+
+        Ensures that all required fields are set and converts None kwargs
+        to empty dictionaries for consistent handling throughout the pipeline.
+
+        Raises:
+            ValueError: If any required field (model_name_or_path, num_labels,
+                       strategy_class, sampler_class, optimizer_class, or
+                       criterion_class) is None.
+        """
         if self.model_name_or_path is None:
             raise ValueError("model_name_or_path is required in ExperimentConfig")
         if self.num_labels is None:
