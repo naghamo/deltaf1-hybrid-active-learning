@@ -93,30 +93,53 @@ deltaf1-hybrid-active-learning/
 git clone https://github.com/naghamo/deltaf1-hybrid-active-learning.git
 cd deltaf1-hybrid-active-learning
 pip install -r requirements.txt
-````
+```
 
 ---
 
 ## Running the Code
 
-### Option A — Notebook workflow (`run_example.ipynb`)
+### Option A — Hyperparameter Optimization (`experimentation.py`)
 
-1. Launch Jupyter:  
-   jupyter lab  
-2. Open `run_example.ipynb` and run all cells.  
-   This notebook demonstrates an adaptive_al module usage with the included datasets.  
+The main experiment script supports full command-line configuration. 
+For `DeltaF1Strategy`, Optuna automatically optimizes `epsilon`, `k`, and `validation_fraction` hyperparameters (15 hours by default). 
+Other strategies run with fixed provided configurations.
 
-### Option B — Optuna workflow (`experimentation.py`)
+```bash
+# Run with all defaults
+python experimentation.py
 
-1. `experimentation.py` runs an **Optuna study** to tune active learning hyperparameters.  
-2. Edit the configuration block inside the script (dataset, sampler, strategy, budgets, seeds, number of trials).  
-3. Run it directly:  
-   python3 experimentation.py  
-4. Optuna will log trial metrics and pick the best hyperparameters.  
+# Run specific experiments
+python experimentation.py --datasets agnews imdb --strategies RetrainStrategy FineTuneStrategy
+
+# Customize hyperparameters
+python experimentation.py --epochs 10 --learning-rate 3e-5 --batch-size 32
+
+# Run with single seed for quick testing
+python experimentation.py --seeds 42 --total-rounds 20
+
+# See all available options
+python experimentation.py --help
+```
+
+**Key Arguments:**
+- `--datasets`: Choose from `agnews`, `imdb`, `jigsaw` (space-separated)
+- `--strategies`: Choose from `DeltaF1Strategy`, `RetrainStrategy`, `FineTuneStrategy`, `NewOnlyStrategy`
+- `--seeds`: Random seeds for reproducibility (default: 42 43 44)
+- `--model`: Hugging Face model (default: `distilbert-base-uncased`)
+- `--epochs`: Training epochs per round (default: 5)
+- `--total-rounds`: Maximum AL rounds (default: 40)
+- `--save-dir`: Output directory (default: `./experiments/sep_25`)
+
+### Option B — Notebook workflow (`run_example.ipynb`)
+
+1. Launch Jupyter: `jupyter lab`
+2. Open `run_example.ipynb` and run all cells
+3. This notebook demonstrates the `adaptive_al` module usage with example configurations
 
 ### Outputs and Visualization
 
-- Results are saved under `./experiments/<experiment_subdir>/`  
+- Results are saved under `./experiments/<experiment_subdir>/`
 - Includes metrics (per-round F1 / ΔF1), the config used, and logs  
 - Use `figure_plotter.py` to turn results into plots (examples are in `media/`)  
 
