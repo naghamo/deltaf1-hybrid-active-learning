@@ -20,7 +20,7 @@ The project follows the standard **pool-based active learning pipeline**:
 1. **Initialization** – Start with a small labeled dataset and a large pool of unlabeled samples.  
 2. **Model Training** – Train a model on the current labeled pool.  
 3. **Evaluation** – Evaluate the model on a validation set to monitor performance.  
-4. **Querying / Sampling** – Select the most informative samples from the unlabeled pool (e.g., random, entropy, uncertainty).  
+4. **Querying / Sampling** – Select the most informative samples from the unlabeled pool (e.g., random, entropy, ...).  
 5. **Annotation** – Add the newly labeled samples to the labeled pool.  
 6. **Iteration** – Repeat training, evaluation, and querying until the budget (rounds or labels) is exhausted.  
 7. **Final Testing** – Evaluate the final model on the held-out test set.  
@@ -154,7 +154,7 @@ python experimentation.py --help
 | Jigsaw  | Toxic comment classification | 111.7k / 16k / 31.9k  | 2        | Imbalanced |
 
 - Sample CSVs (`train_agnews.csv`, `test_agnews.csv`, `imdb.csv`, `jigsaw.csv`) are included in the repo for quick experiments.  
-- Preprocessing and label distributions are analyzed in the `eda_preprocessing/` notebooks.
+- Preprocessing and label distributions are analyzed in the `eda_preprocessing/all_datasets_eda.ipynb` notebook.
 
 ---
 
