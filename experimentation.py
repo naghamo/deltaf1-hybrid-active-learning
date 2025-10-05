@@ -149,10 +149,6 @@ def parse_args():
     parser.add_argument("--plateau-f1-threshold", type=float, default=0.0005,
                         help="Minimum F1 improvement to avoid plateau detection")
 
-    # Evaluation
-    parser.add_argument("--approx-eval-subset-size", type=int, default=6000,
-                        help="Subset size for approximate evaluation")
-
     # Sampling
     parser.add_argument("--random-subset-size", type=int, default=1000,
                         help="Random subset size for entropy sampler")
@@ -205,7 +201,6 @@ if __name__ == "__main__":
             "add_special_tokens": True,
             "return_tensors": "pt"
         },
-        "approximate_evaluation_subset_size": args.approx_eval_subset_size,
         "optimizer_class": "Adam",
         "optimizer_kwargs": {"lr": args.learning_rate, "weight_decay": args.weight_decay},
         "criterion_class": "CrossEntropyLoss",

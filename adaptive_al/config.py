@@ -38,7 +38,6 @@ class ExperimentConfig:
     plateau_patience: int = -1
     plateau_f1_threshold: float = 0.5
 
-    approximate_evaluation_subset_size: int = -1
     max_seconds: int = None # i.e. no timeout
 
     pool_proportion_threshold: float = -1
