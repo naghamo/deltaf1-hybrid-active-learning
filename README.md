@@ -22,7 +22,7 @@ The project follows the standard **pool-based active learning pipeline**:
 3. **Evaluation** – Evaluate the model on a validation set to monitor performance.  
 4. **Querying / Sampling** – Select the most informative samples from the unlabeled pool (e.g., random, entropy, ...).  
 5. **Annotation** – Add the newly labeled samples to the labeled pool.  
-6. **Iteration** – Repeat training, evaluation, and querying until the budget (rounds or labels) is exhausted.  
+6. **Iteration** – Repeat training, evaluation, and querying until the budget (rounds or labels) is exhausted, or until timeout or performance plateau constraints are met.
 7. **Final Testing** – Evaluate the final model on the held-out test set.  
 
 HybridAL extends this pipeline by **adaptively switching the training strategy** (from retraining to fine-tuning) when performance improvements (ΔF1) stabilize, reducing computational costs while preserving accuracy.
